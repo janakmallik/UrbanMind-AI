@@ -218,3 +218,38 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project-specific
+data/raw/*
+data/processed/*
+data/features/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+!data/features/.gitkeep
+
+# ML artifacts
+mlruns/
+mlartifacts/
+*.pt
+*.pth
+*.ckpt
+*.pkl
+*.joblib
+
+# Hydra
+outputs/
+multirun/
+
+# Notebooks
+.ipynb_checkpoints/
+
+# Streamlit
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+mlflow.db
+mlflow.db-*
+mlartifacts/
