@@ -256,3 +256,6 @@ mlartifacts/
 
 mlflow.db
 mlflow.db-*
+
+# Local environment
+.env
