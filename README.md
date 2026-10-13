@@ -26,11 +26,11 @@ A research and engineering project that builds end-to-end machine learning syste
 
 ## Status
 
-🚧 **In development** — Phase 0 (project setup)
+🚧 **In development** — Week 1 complete
 
 | Week | Focus | Status |
 |------|-------|--------|
-| 1 | Foundation + classical ML | 🚧 In progress |
+| 1 | Foundation + classical ML | ✅ Complete |
 | 2 | Time series + forecasting | ⬜ Not started |
 | 3 | Graph neural networks | ⬜ Not started |
 | 4 | Image classification + transfer learning | ⬜ Not started |
@@ -42,6 +42,37 @@ A research and engineering project that builds end-to-end machine learning syste
 | 10 | Uncertainty + anomaly detection | ⬜ Not started |
 | 11 | Generative models | ⬜ Not started |
 | 12 | MLOps + deployment | ⬜ Not started |
+
+## Week 1 Results — NYC 311 Complaint Classification
+
+Task: predict the **type** of an NYC 311 service request using only
+information available **before** the complaint is classified.
+
+**Dataset:** 100,000 rows from NYC Open Data (top-5 classes, 53,135 rows after filtering)
+**Features:** borough, ZIP (top-50), calendar (cyclical), latitude/longitude
+**Excluded:** descriptor, agency, location_type — all leaky (assigned during classification)
+
+| Model | Accuracy | Macro-F1 |
+|-------|---------:|---------:|
+| Majority class | 0.3387 | 0.1012 |
+| Logistic Regression | 0.5018 | 0.3074 |
+| Random Forest | 0.5701 | 0.4839 |
+| Hist Gradient Boosting | 0.6378 | 0.5487 |
+| MLP | 0.5175 | 0.3376 |
+| XGBoost | 0.6145 | 0.4957 |
+| LightGBM (untuned) | 0.6551 | 0.5749 |
+| **LightGBM (Optuna-tuned)** | **0.6871** | **0.6188** |
+
+- Model card: [`docs/model_cards/nyc311_lightgbm_v1.md`](docs/model_cards/nyc311_lightgbm_v1.md)
+- Dataset card: [`docs/dataset_cards/nyc311.md`](docs/dataset_cards/nyc311.md)
+- Experiments tracked in MLflow (`mlflow.db`)
+
+**Reproduce:**
+```bash
+uv sync --extra dev
+uv run python scripts/compare_models.py
+uv run python scripts/tune_best.py
+```
 
 ## Why this project
 

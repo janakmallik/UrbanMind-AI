@@ -259,3 +259,6 @@ mlflow.db-*
 
 # Local environment
 .env
+
+# extras
+project_progress_track.md
