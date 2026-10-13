@@ -1,7 +1,8 @@
 """Feature engineering for NYC 311 complaint-type classification.
 
-All features here are available at prediction time. The label column
-(complaint_type) must never be used as an input.
+CRITICAL: Only features that exist BEFORE the complaint is classified
+are used. The `descriptor` field is a downstream refinement of the
+complaint type and MUST NOT be used as a model feature.
 """
 
 from __future__ import annotations
@@ -45,11 +46,24 @@ def bin_zip(df: pd.DataFrame, top_zips: list[str] | None = None) -> pd.DataFrame
     return out
 
 
+def clean_categoricals(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill missing categorical features with a clear placeholder."""
+    out = df.copy()
+    if "borough" in out.columns:
+        out["borough"] = out["borough"].fillna("UNKNOWN").astype(str)
+    if "agency" in out.columns:
+        out["agency"] = out["agency"].fillna("UNKNOWN").astype(str)
+    if "location_type" in out.columns:
+        out["location_type"] = out["location_type"].fillna("UNKNOWN").astype(str)
+    return out
+
+
 def build_features(df: pd.DataFrame, top_zips: list[str] | None = None) -> pd.DataFrame:
     """Apply all feature transformations in one call."""
     df = parse_datetime(df)
     df = add_cyclical(df)
     df = bin_zip(df, top_zips=top_zips)
+    df = clean_categoricals(df)
     return df
 
 
@@ -69,3 +83,14 @@ def numeric_feature_columns() -> list[str]:
         "latitude",
         "longitude",
     ]
+
+
+def categorical_feature_columns() -> list[str]:
+    """Categorical feature columns fed to the model.
+
+    NOTE: 'descriptor' is intentionally excluded — it is a downstream
+    refinement of the target and would cause leakage.
+    """
+    cols = ["borough", "zip_binned"]
+    # agency / location_type included only if present in the dataframe
+    return cols

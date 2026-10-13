@@ -18,6 +18,7 @@ _COLUMN_ALIASES = {
     "agency name": "agency_name",
     "problem (formerly complaint type)": "complaint_type",
     "problem detail (formerly descriptor)": "descriptor",
+    "location type": "location_type",
     "incident zip": "incident_zip",
     "borough": "borough",
     "latitude": "latitude",
@@ -26,15 +27,22 @@ _COLUMN_ALIASES = {
     "status": "status",
 }
 
+# Columns we always require
 REQUIRED_COLUMNS = [
     "unique_key",
     "created_date",
     "complaint_type",
-    "descriptor",
     "borough",
     "incident_zip",
     "latitude",
     "longitude",
+]
+
+# Columns we keep IF they exist (available pre-classification, useful as features)
+OPTIONAL_COLUMNS = [
+    "agency",
+    "location_type",
+    "descriptor",  # kept for analysis, NOT used as a model feature
 ]
 
 # dtypes we care about — zip must be string (preserve leading zeros)
@@ -98,8 +106,9 @@ def load_nyc311(
             f"Missing required columns: {missing}. Available (first 20): {sorted(df.columns)[:20]}"
         )
 
-    # Keep only required columns
-    df = df[REQUIRED_COLUMNS].copy()
+    # Keep required columns, plus optional ones that happen to exist
+    keep = REQUIRED_COLUMNS + [c for c in OPTIONAL_COLUMNS if c in df.columns]
+    df = df[keep].copy()
 
     if validate:
         try:

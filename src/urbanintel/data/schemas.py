@@ -15,11 +15,17 @@ class NYC311Schema(pa.DataFrameModel):
     unique_key: Series[str] = pa.Field(nullable=False)
     created_date: Series[str] = pa.Field(nullable=False)
     complaint_type: Series[str] = pa.Field(nullable=False)
-    descriptor: Series[str] = pa.Field(nullable=True)
     borough: Series[str] = pa.Field(nullable=True)
     incident_zip: Series[str] = pa.Field(nullable=True)
     latitude: Series[float] = pa.Field(nullable=True, ge=40.0, le=41.5)
     longitude: Series[float] = pa.Field(nullable=True, ge=-74.5, le=-73.5)
+
+    # Optional pre-classification features
+    agency: Series[str] = pa.Field(nullable=True, required=False)
+    location_type: Series[str] = pa.Field(nullable=True, required=False)
+
+    # Descriptor kept for analysis only, never used as a model feature
+    descriptor: Series[str] = pa.Field(nullable=True, required=False)
 
     class Config:
         strict = False
