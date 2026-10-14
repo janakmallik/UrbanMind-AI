@@ -225,6 +225,15 @@ For fair evaluation:
 - Fit imputers, scalers, and other learned preprocessing only on training data.
 - Preserve the chronological order of observations.
 
+**Adopted policy (provisional, Week 2):**
+- Zero-valued targets are treated as suspected missing and masked out of
+  MAE / RMSE / MAPE.
+- Zero-valued inputs are passed to models unchanged.
+- The sensor-hour historical mean is computed over all training values
+  including zeros.
+- This policy is applied uniformly across all baselines and (later) ML/DL
+  models. Changing it mid-comparison invalidates comparisons.
+  
 ## 7. Chronological Splitting and Leakage Prevention
 
 Traffic forecasting must respect time order. Randomly splitting individual timestamps can expose future conditions during training and create overly optimistic evaluation results.

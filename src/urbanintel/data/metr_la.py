@@ -39,7 +39,9 @@ class METRLAWindowed:
     valid_mask : np.ndarray, shape (n_samples, n_horizons, n_sensors)
         True where the target is considered valid (currently: nonzero).
     timestamps : np.ndarray, shape (n_samples,)
-        Timestamp of the first input step for each sample.
+        Timestamp of the **last input step** for each sample.
+        For horizon h (steps ahead), the target timestamp is
+        timestamps[i] + 5 * h minutes.
     """
 
     X: np.ndarray
