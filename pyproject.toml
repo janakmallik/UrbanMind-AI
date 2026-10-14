@@ -41,6 +41,7 @@ dependencies = [
     "rich>=13.9",
     "tqdm>=4.66",
     "python-dotenv>=1.2.4",
+    "h5py>=3.16.0",
 ]
 
 [project.optional-dependencies]
