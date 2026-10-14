@@ -42,6 +42,7 @@ dependencies = [
     "tqdm>=4.66",
     "python-dotenv>=1.2.4",
     "h5py>=3.16.0",
+    "tables>=3.11.1",
 ]
 
 [project.optional-dependencies]

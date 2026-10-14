@@ -154,6 +154,27 @@ Coordinate reference details and the precise meaning of the `index` field should
 
 These statistics describe the downloaded files and the checks performed. They do not, by themselves, establish the semantic validity of every measurement.
 
+### 5.1 Chronological Split — Actual Boundaries
+
+The 70/10/20 chronological split produces the following partitions:
+
+| Partition | Window samples | Valid mask fraction | Time range |
+|---|---:|---:|---|
+| Train | 23,967 | 92.9% | 2012-03-01 00:55 → 2012-05-23 06:05 |
+| Validation | 3,404 | 93.0% | 2012-05-23 08:05 → 2012-06-04 03:40 |
+| Test | 6,832 | 87.9% | 2012-06-04 05:40 → 2012-06-27 22:55 |
+
+**Note on distribution shift:** The test period has a lower valid-mask fraction
+(~87.9%) than train and validation (~93%). This means ~12% of test targets are
+suspected missing, compared to ~7% in training. Any reported test metric must
+account for this — the effective number of valid test targets is smaller than
+the raw sample count.
+
+**Note on sample counts:** Window counts are smaller than raw partition
+timesteps because each window consumes `input_length + max(horizons) = 24`
+timesteps. The final valid window in each partition ends 24 timesteps before
+the partition boundary.
+
 ## 6. Data Quality: Zero Values and Possible Outages
 
 ### 6.1 Observed issue
