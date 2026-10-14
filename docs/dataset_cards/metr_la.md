@@ -291,6 +291,18 @@ Every experiment should document:
 
 Published model results are reference points, not guaranteed targets. Direct comparisons are meaningful only when the benchmark protocol and evaluation conventions match.
 
+### Success threshold for Week 2
+
+**Beat persistence by ≥15% relative MAE at the 60-minute horizon.**
+
+Published GNN results (MAE ≈ 3.5 mph at 60 min) are the long-term reference
+target, not the Week 2 goal. Week 2 focuses on establishing a reliable
+classical-ML forecasting pipeline. Deep models and graph models come later.
+
+If the Week 2 model does not beat persistence by this margin, it indicates
+either (a) a data or split problem, or (b) insufficient feature engineering.
+Investigate before proceeding to Week 3.
+
 ## 10. Known Limitations
 
 - Coverage is limited to the sensors represented in METR-LA.
