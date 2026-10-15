@@ -104,3 +104,55 @@ models improve further.
 
 ---
 
+## 2026-10-15 — METR-LA TCN deep forecaster
+
+**Hypothesis:** A TCN with dilated causal convolutions will match or beat
+LightGBM by learning temporal patterns end-to-end without hand-crafted lags.
+
+**Setup:**
+- Same windows, split, mask as LightGBM
+- Architecture: 2 dilated causal blocks (dilations 1, 2), hidden=64,
+  no normalization, GELU, dropout 0.1
+- Input: (batch, 12 steps, 207 sensors) — all sensors as channels
+- Output: (batch, 3 horizons, 207 sensors)
+- Loss: masked L1 (target==0 masked out)
+- Optimizer: AdamW, lr=1e-3, cosine annealing over 50 epochs
+- Batch size 128, gradient clipping 1.0
+- Best epoch selected by overall validation MAE
+
+**Result:**
+
+| Model | MAE h=3 | MAE h=6 | MAE h=12 |
+|---|---:|---:|---:|
+| Persistence | 4.0207 | 5.1001 | 6.8031 |
+| LightGBM | 3.1095 | 3.6992 | 4.3356 |
+| **TCN** | **3.9721** | **4.1661** | **4.5935** |
+
+**Takeaway:**
+
+The TCN beats persistence at all three horizons but **does not beat
+LightGBM**. The gap narrows with horizon (LightGBM advantage: 27.7% at h=3,
+12.6% at h=6, 5.9% at h=12), which suggests deep models may be better at
+capturing long-range patterns.
+
+Two plausible explanations for the overall gap:
+
+1. **Explicit feature engineering matters on small datasets.** LightGBM has
+   20 hand-crafted per-sensor features (lags, sensor stats, calendar). The
+   TCN has to learn temporal and cross-sensor structure from 207 input
+   channels with only ~24k training windows. That is a small dataset for
+   end-to-end deep learning.
+
+2. **Tabular models remain competitive on low-dimensional time series.**
+   This is a documented pattern in the literature (e.g., Grinsztajn et al.
+   2022, "Why do tree-based models still outperform deep learning on tabular
+   data?"). METR-LA forecasting with only temporal features may fall into
+   this regime.
+
+**Reference:** Published DCRNN MAE at h=12 is 3.60 mph. Both LightGBM (4.34)
+and TCN (4.59) are within ~30% of that — the DCRNN leverages the graph
+structure, which we have not yet used. Week 3 will test whether adding
+graph structure closes the remaining gap.
+
+---
+
