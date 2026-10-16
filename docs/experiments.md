@@ -208,14 +208,14 @@ not run in this pass.
 
 ## 2026-10-16 — NYC 311 text baselines
 
-**Hypothesis:** The descriptor field is co-assigned with the complaint
-type, so a simple descriptor→label lookup may achieve near-perfect
-accuracy. If so, the task is a lookup, not a classification problem.
+**Hypothesis:** The descriptor field is co-assigned with complaint_type,
+so a simple descriptor→label lookup should achieve near-perfect accuracy.
+If so, the task is a lookup, not a classification problem.
 
 **Setup:**
-- Same top-5 classes and stratified 70/15/15 split as the text prep
-- Three baselines: majority class, descriptor lookup, TF-IDF + LogReg
-- Metric: accuracy and macro-F1 on the test set (7,971 examples)
+- Top-5 classes, stratified 70/15/15 split, random_state=42
+- Train: 37,194 | Val: 7,970 | Test: 7,971
+- Baselines: majority class, descriptor lookup, TF-IDF + LogReg
 
 **Result:**
 
@@ -227,23 +227,23 @@ accuracy. If so, the task is a lookup, not a classification problem.
 
 **Takeaway:**
 
-The task is **fully deterministic**. A dictionary mapping from
-descriptor to its most common training label achieves 99.97% accuracy
-(2 errors out of 7,971 test rows). TF-IDF + LogReg achieves 100%.
+The task is **nearly deterministic**. A dictionary mapping descriptor
+→ most common label achieves 99.97% accuracy on the test set
+(2 errors out of 7,971 rows). TF-IDF + LogReg achieves 100%.
 
-There is no room for a more sophisticated model to improve on these
-results. DistilBERT's expected ~100% accuracy will demonstrate API
-fluency and training-pipeline competence, not semantic understanding.
+The two lookup errors indicate the mapping is not strictly
+deterministic — a small number of descriptors appear under multiple
+complaint types. But the effective ceiling for any model on this task
+is ~100%, so DistilBERT's expected score (~100%) will not demonstrate
+semantic understanding. It will demonstrate API fluency.
 
-**Implication for the project:**
+**Implication:** Future text experiments should use a field with real
+linguistic variability. Candidates: `additional_details` (operator
+notes, ~53% null in this sample) or raw complaint text. The
+`descriptor` field is a structured code and unsuitable for
+demonstrating NLP capability.
 
-Future text experiments should use a field with actual linguistic
-variability, such as `additional_details` (operator notes, 53% null)
-or the raw resident-written complaint text. The `descriptor` field
-is a structured code and unsuitable for demonstrating NLP capability.
-
-**This is the honest conclusion.** The Week 4 descriptor task is a
-data-encoding exercise, documented as such.
+**This is the honest conclusion.**
 
 ---
 
