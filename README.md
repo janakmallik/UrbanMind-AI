@@ -23,15 +23,15 @@ A research and engineering project that builds end-to-end machine learning syste
 
 ## Status
 
-🚧 **In development** — Week 3 complete
+🚧 **In development** — Week 5 complete
 
 | Week | Focus | Status |
 |------|-------|--------|
 | 1 | Foundation + classical ML | ✅ Complete |
 | 2 | Time series forecasting | ✅ Complete |
 | 3 | Graph neural networks | ✅ Complete |
-| 4 | Text classification (BERT) | ⬜ Next |
-| 5 | Image classification + transfer learning | ⬜ Not started |
+| 4 | Text classification (BERT) | ✅ Complete |
+| 5 | Image classification + transfer learning | ⬜ Next |
 | 6 | Segmentation + object detection | ⬜ Not started |
 | 7 | Video understanding | ⬜ Not started |
 | 8 | Text generation + LLMs | ⬜ Not started |
@@ -126,6 +126,38 @@ A research and engineering project that builds end-to-end machine learning syste
 - Portable tests using synthetic fixtures (run in CI without local dataset)
 - MLflow experiment: `urbanintel-week3`
 - Tag: `v0.5.0-week3-gnn`
+
+---
+
+## Week 4 — NYC 311 Text Classification (DistilBERT)
+
+**Task:** Classify complaint type from the `descriptor` field using a
+fine-tuned DistilBERT model.
+
+**Important note:** The `descriptor` field is assigned by the intake
+operator at the same time as `complaint_type`. It is a near-deterministic
+predictor of the label. This experiment is a HuggingFace workflow
+demonstration, **not** a claim about semantic NLP capability.
+
+### Model comparison (test set)
+
+| Model | Accuracy | Macro-F1 |
+|-------|---------:|---------:|
+| Majority class | 0.3387 | 0.1012 |
+| Descriptor lookup | 0.9997 | 0.9994 |
+| TF-IDF + LogReg | 1.0000 | 1.0000 |
+| **DistilBERT** | **1.0000** | **1.0000** |
+
+**Key finding:** The task is a deterministic lookup. DistilBERT matches
+the ceiling but does not exceed it. Every test descriptor appeared in
+training (99.97% row overlap).
+
+**Deliverables:**
+- Text data prep module: `src/urbanintel/data/nyc311_text.py`
+- DistilBERT training script: `scripts/run_distilbert_nyc311.py`
+- Model card: `docs/model_cards/nyc311_distilbert_v1.md`
+- MLflow experiment: `urbanintel-week4`
+- Tag: `v0.6.0-week4-text`
 
 ---
 
