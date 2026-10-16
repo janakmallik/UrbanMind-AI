@@ -156,3 +156,50 @@ graph structure closes the remaining gap.
 
 ---
 
+## 2026-10-16 — METR-LA Graph WaveNet-lite
+
+**Hypothesis:** Using the road-network adjacency matrix will improve
+forecasting by letting each sensor use information from nearby sensors.
+
+**Setup:**
+- Same windows, split, mask as previous experiments
+- Architecture: per-timestep graph conv + causal temporal conv, 2 dilated blocks
+- Adaptive adjacency blended with fixed distance graph (sigmoid(alpha))
+- hidden=64, 41,629 parameters
+- 50 epochs, AdamW, cosine LR, best-epoch checkpoint on validation MAE
+- Best epoch: 47 (val MAE 3.836)
+
+**Result:**
+
+| Model | MAE h=3 | MAE h=6 | MAE h=12 |
+|---|---:|---:|---:|
+| Persistence | 4.0207 | 5.1001 | 6.8031 |
+| Sensor-hour mean | 7.4968 | 7.4959 | 7.4943 |
+| LightGBM | **3.1095** | **3.6992** | **4.3356** |
+| TCN | 3.9721 | 4.1661 | 4.5935 |
+| **Graph WaveNet-lite** | **3.4393** | 4.1331 | 5.1969 |
+
+**Takeaway:**
+
+GWNet beats TCN at h=3 (+13%) and h=6 (+1%), but loses at h=12 (-13%).
+LightGBM wins at every horizon.
+
+The result is stable across two independent runs (val MAE 3.836 in both),
+confirming the training pipeline is reproducible.
+
+Two honest observations:
+
+1. LightGBM remains the best model on this task. This aligns with
+   published findings that gradient boosting is highly competitive on
+   small-to-medium structured time-series datasets.
+
+2. The simplified GWNet underperforms the full published architecture.
+   Published Graph WaveNet achieves MAE ~3.53 at h=12. Our lite version
+   at 5.20 suggests insufficient capacity or missing architectural
+   components (gated TCN, deeper stacks, more sophisticated diffusion
+   convolutions).
+
+A higher-capacity variant (hidden=128) is a natural follow-up but was
+not run in this pass.
+
+**Reference:** Wu et al. 2019 (Graph WaveNet) — MAE 2.69 / 3.07 / 3.53.
