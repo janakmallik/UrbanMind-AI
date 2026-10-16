@@ -203,3 +203,47 @@ A higher-capacity variant (hidden=128) is a natural follow-up but was
 not run in this pass.
 
 **Reference:** Wu et al. 2019 (Graph WaveNet) — MAE 2.69 / 3.07 / 3.53.
+
+---
+
+## 2026-10-16 — NYC 311 text baselines
+
+**Hypothesis:** The descriptor field is co-assigned with the complaint
+type, so a simple descriptor→label lookup may achieve near-perfect
+accuracy. If so, the task is a lookup, not a classification problem.
+
+**Setup:**
+- Same top-5 classes and stratified 70/15/15 split as the text prep
+- Three baselines: majority class, descriptor lookup, TF-IDF + LogReg
+- Metric: accuracy and macro-F1 on the test set (7,971 examples)
+
+**Result:**
+
+| Baseline | Accuracy | F1 Macro |
+|---|---:|---:|
+| Majority class | 0.3387 | 0.1012 |
+| **Descriptor lookup** | **0.9997** | **0.9994** |
+| **TF-IDF + LogReg** | **1.0000** | **1.0000** |
+
+**Takeaway:**
+
+The task is **fully deterministic**. A dictionary mapping from
+descriptor to its most common training label achieves 99.97% accuracy
+(2 errors out of 7,971 test rows). TF-IDF + LogReg achieves 100%.
+
+There is no room for a more sophisticated model to improve on these
+results. DistilBERT's expected ~100% accuracy will demonstrate API
+fluency and training-pipeline competence, not semantic understanding.
+
+**Implication for the project:**
+
+Future text experiments should use a field with actual linguistic
+variability, such as `additional_details` (operator notes, 53% null)
+or the raw resident-written complaint text. The `descriptor` field
+is a structured code and unsuitable for demonstrating NLP capability.
+
+**This is the honest conclusion.** The Week 4 descriptor task is a
+data-encoding exercise, documented as such.
+
+---
+
