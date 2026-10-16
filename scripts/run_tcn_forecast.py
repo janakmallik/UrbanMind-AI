@@ -106,7 +106,7 @@ def main() -> None:
             {
                 "model": "TCN",
                 "hidden": 64,
-                "n_blocks": 4,
+                "n_blocks": 2,
                 "input_length": train_ds.X.shape[1],
                 "batch_size": BATCH_SIZE,
                 "epochs": EPOCHS,
