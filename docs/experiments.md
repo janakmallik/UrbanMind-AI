@@ -247,3 +247,47 @@ demonstrating NLP capability.
 
 ---
 
+## 2026-10-16 — NYC 311 DistilBERT fine-tuning
+
+**Hypothesis:** DistilBERT will match the ceiling established by the
+lookup and TF-IDF baselines (~100%) because the task is deterministic.
+The experiment is a HuggingFace API learning exercise, not a claim
+about transformer capability.
+
+**Setup:**
+- Same split as baselines (stratified 70/15/15, random_state=42)
+- Model: distilbert-base-uncased (66M params)
+- Tokenizer: max_length=16 (descriptors are 1-4 words)
+- Training: 3 epochs, AdamW (lr=2e-5), batch size 32
+- Best-epoch checkpoint on validation macro-F1
+
+**Result:**
+
+| Model | Accuracy | Macro-F1 |
+|---|---:|---:|
+| Majority class | 0.3387 | 0.1012 |
+| Descriptor lookup | 0.9997 | 0.9994 |
+| TF-IDF + LogReg | 1.0000 | 1.0000 |
+| **DistilBERT** | **1.0000** | **1.0000** |
+
+DistilBERT reaches 100% validation F1 after a single epoch.
+
+**Takeaway:**
+
+DistilBERT matches the deterministic lookup baseline and does not
+exceed TF-IDF + LogReg. This confirms the expected result for a
+trivial task.
+
+The real value of this experiment is confirming the HuggingFace
+fine-tuning workflow works end-to-end. The code is now a template
+for future text classification tasks on harder datasets.
+
+**Recommendation for future weeks:**
+
+Use a text field with genuine linguistic variability. Candidates:
+- `additional_details` — free-text operator notes (~53% null in sample)
+- Raw complaint text written by residents
+
+Neither has been inspected yet. A proper Week 4b/5 experiment should
+first check the field's null fraction, uniqueness, and correlation
+with the target before building a model.
