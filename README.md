@@ -6,6 +6,18 @@ A multimodal ML/DL system for urban scene understanding: video, image, text, tim
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.6-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
+## Project summary
+
+| Modality | Task | Best Result | Week |
+|---|---|---|---|
+| Tabular | NYC 311 complaint classification | LightGBM 68.7% | 1 |
+| Time series | METR-LA traffic forecasting | LightGBM MAE 3.11 mph | 2 |
+| Graph | METR-LA spatiotemporal | GWNet MAE 3.44 mph | 3 |
+| Text | NYC 311 descriptor classification | DistilBERT 100% (trivial task) | 4 |
+| Image | BDD100K scene classification | ResNet-50 F1 0.6984 | 5 |
+
+**Skills demonstrated:** Classical ML, deep learning, time series, graph neural networks, text/NLP transformers, computer vision, PyTorch, MLflow, reproducibility, honest evaluation.
+
 ## What this is
 
 A research and engineering project that builds end-to-end machine learning systems for urban environments. It covers:
@@ -23,7 +35,7 @@ A research and engineering project that builds end-to-end machine learning syste
 
 ## Status
 
-🚧 **In development** — Week 5 complete
+🚧 **In development** — Week 6 complete
 
 | Week | Focus | Status |
 |------|-------|--------|
@@ -31,7 +43,7 @@ A research and engineering project that builds end-to-end machine learning syste
 | 2 | Time series forecasting | ✅ Complete |
 | 3 | Graph neural networks | ✅ Complete |
 | 4 | Text classification (BERT) | ✅ Complete |
-| 5 | Image classification + transfer learning | ⬜ Next |
+| 5 | Image classification + transfer learning | ✅ Complete |
 | 6 | Segmentation + object detection | ⬜ Not started |
 | 7 | Video understanding | ⬜ Not started |
 | 8 | Text generation + LLMs | ⬜ Not started |
@@ -158,6 +170,40 @@ training (99.97% row overlap).
 - Model card: `docs/model_cards/nyc311_distilbert_v1.md`
 - MLflow experiment: `urbanintel-week4`
 - Tag: `v0.6.0-week4-text`
+
+---
+
+---
+
+## Week 5 — BDD100K Scene Classification (Image)
+
+**Task:** Classify urban driving scene keyframes into one of 3 classes:
+city street / highway / residential.
+
+**Dataset:** BDD100K (100,000 images, 3 viable scene classes out of 7).
+Subset decision based on label audit — other 4 classes had <400 samples each.
+
+### Model comparison (test set, 4,932 images)
+
+| Model | Accuracy | F1 Macro |
+|-------|---------:|---------:|
+| Majority class | 0.6196 | 0.2550 |
+| Frozen ResNet-50 + LogReg | 0.7618 | 0.6780 |
+| **Fine-tuned ResNet-50** | **0.7800** | **0.6984** |
+
+**Key finding:** Fine-tuning improved over frozen ImageNet features by
++1.82 accuracy and +2.04 macro-F1. Training loss decreased through
+epoch 5 while validation F1 peaked at epoch 2 — consistent with
+overfitting after epoch 2.
+
+**Deliverables:**
+- Dataset card: `docs/dataset_cards/bdd100k.md`
+- Model card: `docs/model_cards/bdd100k_resnet50_v1.md`
+- Loader: `src/urbanintel/data/bdd100k.py`
+- Baselines: `scripts/run_bdd100k_baselines.py`
+- Fine-tune: `scripts/train_bdd100k_resnet50.py`
+- MLflow experiment: `urbanintel-week5`
+- Tag: `v0.7.0-week5-image`
 
 ---
 
