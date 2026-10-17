@@ -291,3 +291,77 @@ Use a text field with genuine linguistic variability. Candidates:
 Neither has been inspected yet. A proper Week 4b/5 experiment should
 first check the field's null fraction, uniqueness, and correlation
 with the target before building a model.
+
+---
+
+## 2026-10-17 — BDD100K scene classification (ResNet-50 fine-tune)
+
+**Task:** classify urban driving scenes into city street / highway /
+residential from keyframe images.
+
+**Setup:**
+- Train: 68,969 | Val: 4,932 | Test: 4,932
+- ResNet-50 (ImageNet-pretrained IMAGENET1K_V2)
+- Trainable parameters: 23,514,179 (all layers except layer1–3 frozen;
+  only layer4 and the new fc head are trainable)
+- AdamW, lr=1e-4, weight_decay=1e-4
+- CosineAnnealingLR over 5 epochs
+- Batch 8, mixed precision (torch.amp.autocast)
+- Augmentation: RandomResizedCrop(224, scale=(0.75,1.0)), RandomHorizontalFlip
+- Best-epoch checkpoint on validation macro-F1
+
+**Result:**
+
+| Model | Accuracy | F1 Macro |
+|---|---:|---:|
+| Majority class | 0.6196 | 0.2550 |
+| Frozen ResNet-50 + LogReg | 0.7618 | 0.6780 |
+| **Fine-tuned ResNet-50** | **0.7800** | **0.6984** |
+
+Delta over frozen baseline: **+1.82 accuracy, +2.04 macro-F1**.
+
+**Epoch-by-epoch:**
+
+| Epoch | Train Loss | Val F1 | Saved? |
+|---|---:|---:|---|
+| 1 | 0.5548 | 0.6842 | ✓ |
+| 2 | 0.4944 | **0.6956** | ✓ best |
+| 3 | 0.4355 | 0.6819 | ✗ |
+| 4 | 0.3402 | 0.6938 | ✗ |
+| 5 | 0.2348 | 0.6872 | ✗ |
+
+**Takeaway:**
+
+Fine-tuning improved accuracy by +1.82 and macro-F1 by +2.04 over
+the frozen-feature baseline. The improvement is modest but measurable.
+
+Training loss decreased monotonically (0.55 → 0.23) while validation
+F1 peaked at epoch 2 and declined thereafter. This pattern is
+**consistent with overfitting** — the model continued fitting training
+data without improving generalization — but other explanations
+(insufficient BatchNorm adaptation, class imbalance interacting with
+the loss surface) cannot be ruled out from the current evidence.
+
+**Why checkpoint selection uses F1, not loss:** loss measures the
+model's probability calibration; F1 measures actual classification
+decisions across classes. In imbalanced classification, loss can
+drop while F1 stagnates if the model becomes more confident about
+already-correct predictions. Selecting on the task metric (F1) rather
+than the training objective (loss) is the standard practice.
+
+**Possible follow-up experiments (not guaranteed to improve):**
+- Differential learning rates (higher for head, lower for backbone)
+- Stronger augmentation (RandomErasing, mixup)
+- Earlier stopping (3 epochs instead of 5)
+- Per-class loss weighting to address imbalance
+
+**Methodological note on test-set usage:**
+
+The baseline script (`run_bdd100k_baselines.py`) evaluated the test
+split first to report majority-class and frozen-ResNet-50 numbers.
+Therefore fine-tuned metrics are a **consistent benchmark comparison**,
+not a pristine out-of-sample estimate.
+
+**Test split source:** half of BDD100K's official *validation*
+annotations. The official test set has no public scene labels and is
+not used in this project.

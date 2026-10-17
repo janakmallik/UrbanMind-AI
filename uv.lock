@@ -1993,6 +1993,31 @@ wheels = [
 ]
 
 [[package]]
+name = "kagglehub"
+version = "1.0.2"
+source = { git = "https://github.com/Kaggle/kagglehub.git#4fe0a176e0e9b815ca4101c371b504ff97239b97" }
+dependencies = [
+    { name = "kagglesdk" },
+    { name = "packaging" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "tqdm" },
+]
+
+[[package]]
+name = "kagglesdk"
+version = "0.1.37"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "protobuf" },
+    { name = "requests" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/44/8b/363ad553d5d8f23b10be03ae469cc0f3dd746862bc1213c4d6fac64a4a4b/kagglesdk-0.1.37.tar.gz", hash = "sha256:bc362761754966919f63cb7a702bc34118f9e8fcce038ee00fb30d5d11afbe08", size = 210001, upload-time = "2026-08-06T22:24:04.514Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/07/8e/70c358fcf8f6c41f9e74bc0d6203cb623eab6d4b062758c716d51f621167/kagglesdk-0.1.37-py3-none-any.whl", hash = "sha256:766e7d1e59379941b373957e7d80f612942e63ab4a638d99ae4ee3e9e92f050e", size = 262519, upload-time = "2026-08-06T22:24:03.344Z" },
+]
+
+[[package]]
 name = "kiwisolver"
 version = "1.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -5628,6 +5653,7 @@ dependencies = [
     { name = "fastapi" },
     { name = "h5py" },
     { name = "hydra-core" },
+    { name = "kagglehub" },
     { name = "lightgbm" },
     { name = "mlflow" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
@@ -5671,6 +5697,7 @@ requires-dist = [
     { name = "h5py", specifier = ">=3.16.0" },
     { name = "hydra-core", specifier = ">=1.3" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29" },
+    { name = "kagglehub", git = "https://github.com/Kaggle/kagglehub.git" },
     { name = "lightgbm", specifier = ">=4.5" },
     { name = "mlflow", specifier = ">=2.16" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.13" },

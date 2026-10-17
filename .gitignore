@@ -262,3 +262,8 @@ mlflow.db-*
 
 # extras
 project_progress_track.md
+
+# Model checkpoints (tracked via MLflow artifacts, not git)
+*.pt
+*.pth
+bdd_resnet50_best.pt
