@@ -44,6 +44,7 @@ dependencies = [
     "h5py>=3.16.0",
     "tables>=3.11.1",
     "kagglehub",
+    "accelerate>=1.15.0",
 ]
 
 [project.optional-dependencies]
