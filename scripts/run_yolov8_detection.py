@@ -40,7 +40,7 @@ KEEP_COCO_IDS = set(COCO_TO_NAME.keys())
 
 # BDD100K category -> our class name
 BDD_TO_NAME = {
-    "pedestrian": "person",
+    "person": "person",
     "car": "car",
     "truck": "truck",
     "bus": "bus",
