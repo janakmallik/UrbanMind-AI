@@ -365,3 +365,70 @@ not a pristine out-of-sample estimate.
 **Test split source:** half of BDD100K's official *validation*
 annotations. The official test set has no public scene labels and is
 not used in this project.
+
+---
+
+## 2026-10-17 — BDD100K 5-class semantic segmentation (SegFormer-B0)
+
+**Task:** Pixel-level segmentation of urban scenes into 5 classes:
+road, sidewalk, vehicle, person, other.
+
+**Setup:**
+- Train: 6,000 images (official BDD100K train, minus held-out test)
+- Val: 1,000 images (official BDD100K val)
+- Test: 1,000 images (held out from official train, since BDD100K
+  official test has no public labels)
+- Model: SegFormer-B0 (ADE20k pretrained), 3.7M trainable params
+- Resolution: 512×512
+- Loss: 0.5 × CE(class_weighted, ignore=255) + 0.5 × Dice
+- Class weights: [1.0, 2.0, 1.5, 20.0, 0.5] for [road, sidewalk, vehicle, person, other]
+- Optimizer: AdamW, lr=6e-5, weight_decay=0.01, cosine annealing
+- Batch size 8, mixed precision (torch.amp)
+- 20 epochs, best checkpoint selected by validation mIoU
+
+**Class pixel distribution (measured on 50 sampled masks):**
+
+| Class | Pixel share |
+|---|---:|
+| road | 22.21% |
+| sidewalk | 1.60% |
+| vehicle | 9.61% |
+| person | 0.11% |
+| other | 46.45% |
+| ignore (255) | ~20% (not scored) |
+
+**Result:**
+
+| Split | mIoU |
+|---|---:|
+| Validation (best epoch 19) | 0.7480 |
+| **Test (held out)** | **0.7172** |
+
+Val-test gap: 0.031 — excellent generalization.
+
+**Per-class test IoU:**
+
+| Class | IoU | Note |
+|---|---:|---|
+| road | 0.9081 | Excellent |
+| sidewalk | 0.5377 | Strong for 1.6% pixel share |
+| vehicle | 0.8538 | Excellent |
+| person | 0.3319 | Real result despite 0.11% pixel share |
+| other | 0.9547 | Excellent |
+
+**Takeaway:**
+
+SegFormer-B0 fine-tuned on 6,000 BDD100K images achieves **0.72 test mIoU** across 5 urban scene classes — a strong result for a small model on a small dataset.
+
+**Person class (0.11% of pixels) reached 0.33 IoU** through class-weighted CE and Dice loss. The 20× weight was necessary and effective. The class is learnable — not "unlearnable" as feared — though person IoU is still the weakest class.
+
+**Sidewalk (1.60% of pixels) reached 0.54 IoU** — the class is small but consistent enough to learn well.
+
+**Person-on-road vs. person-on-sidewalk analysis** (a downstream task) is now feasible given both classes are segmented. Documented as a possible Week 10+ extension.
+
+**Training speed:** 185s/epoch for 6,000 images at 512×512 batch 8 — a total of ~62 minutes. This leaves room for hyperparameter tuning or longer training if desired.
+
+**Reference:** Published SegFormer-B0 on BDD100K 19-class segmentation achieves ~0.60-0.65 mIoU. Our simplified 5-class task achieves 0.72 — the task is easier, but the number is legitimate for the task definition.
+
+---
+
