@@ -432,3 +432,87 @@ SegFormer-B0 fine-tuned on 6,000 BDD100K images achieves **0.72 test mIoU** acro
 
 ---
 
+## 2026-10-18 — BDD100K YOLOv8 detection inference
+
+**Task:** qualitative detection demo on BDD100K val images using COCO-pretrained YOLOv8n.
+
+**Setup:**
+- 200 randomly sampled val images (seed=42)
+- YOLOv8n pretrained on COCO (80 classes)
+- Filtered to 4 aligned classes: person, car, truck, bus
+- Ground truth boxes drawn from BDD100K label `box2d` coordinates
+
+**Reported:**
+- Raw detection counts per class (YOLO vs. GT) — see run output
+- 12 side-by-side visualizations in `docs/detection_examples/`
+
+**Not reported:**
+- Precision/recall/F1/mAP — YOLO COCO-pretrained on BDD100K suffers domain shift; IoU-based evaluation is a planned future extension
+
+**Takeaway:**
+
+YOLOv8n produces visually reasonable detections on BDD100K images, but quantitatively it undercounts relative to ground truth — expected for a COCO model applied to urban driving footage. This is a qualitative demo, not a benchmark.
+
+A proper evaluation would implement IoU-based matching (threshold 0.5) to compute per-class precision/recall/F1. That is scoped for a later phase (Week 10, evaluation framework).
+
+---
+
+## 2026-10-18 — YOLOv8n IoU-based detection evaluation (Level 2)
+
+**Setup:**
+- 200 randomly sampled BDD100K val images (seed=42)
+- YOLOv8n pretrained on COCO
+- Confidence threshold: 0.25 (YOLO default)
+- IoU matching threshold: 0.5
+- Classes: person, car, truck, bus
+
+**Result:**
+
+| Class | TP | FP | FN | Precision | Recall | F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| person | 96 | 42 | 260 | 0.696 | 0.270 | 0.389 |
+| car | 758 | 219 | 1243 | 0.776 | 0.379 | 0.509 |
+| truck | 23 | 39 | 70 | 0.371 | 0.247 | 0.297 |
+| bus | 10 | 11 | 30 | 0.476 | 0.250 | 0.328 |
+| **macro** | | | | **0.580** | **0.286** | **0.381** |
+
+**Takeaway:**
+
+COCO-pretrained YOLOv8n on BDD100K urban footage shows the
+characteristic signature of **domain shift**:
+
+- **Precision is moderate-to-high** (0.58 macro): when YOLO detects
+  something, it's usually correct.
+- **Recall is low** (0.29 macro): YOLO misses the majority of real
+  objects — especially small/distant pedestrians, partially occluded
+  vehicles, and BDD100K-specific class definitions (e.g., "truck" in
+  COCO means a specific box-truck shape, while BDD100K labels any
+  large commercial vehicle as truck).
+
+**Person recall is especially low** (0.27): 73% of pedestrians are
+missed. This is expected because:
+1. BDD100K has many small, distant pedestrians
+2. COCO pedestrians are usually large and centered
+3. The confidence threshold (0.25) is tuned for COCO, not BDD100K
+
+Lowering the confidence threshold would raise recall at the cost of
+precision — this is the classic precision-recall tradeoff, which a
+confidence sweep would explore.
+
+**Scope note:** this is a Level 2 evaluation (single IoU threshold,
+single confidence threshold, per-class P/R/F1). It does NOT compute:
+- mAP@0.5:0.95
+- Confidence-threshold sweeps
+- Per-size analysis (small/medium/large)
+- Cross-model comparison
+
+These are explicitly deferred. The purpose here is a quantitative
+baseline, not a benchmark-paper evaluation.
+
+**Portfolio value:** this result is honest about what a pretrained
+model does on a different domain, and it teaches the precision-recall
+tradeoff concretely. Fine-tuning YOLO on BDD100K would substantially
+improve these numbers — a natural future experiment.
+
+---
+
