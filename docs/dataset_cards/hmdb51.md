@@ -8,7 +8,7 @@
 | Original paper | Kuehne et al., ICCV 2011 |
 | Download | https://huggingface.co/datasets/Serrelab/hmdb51 |
 | Local path | `<URBANINTEL_DATA_ROOT>/hmdb51/` |
-| Total clips | 6,766 (official release) |
+| Total clips | 6,766 (observed from HuggingFace Serrelab release) |
 | Total classes | 51 |
 | License | CC BY 4.0 |
 
@@ -36,8 +36,12 @@ as primary metric, plus per-class accuracy.
 Uses official HMDB-51 **split 1** (`testTrainMulti_7030_splits`):
 - 70% train / 30% test per class
 - Files named `<class>_test_split1.txt`
-- Each line: `<filename> <0 or 1>` (0=train, 1=test)
-- Clips from the same source video do not cross split boundaries
+- Each line: `<filename> <label>` where:
+  - `0` = ignore (excluded from this split)
+  - `1` = train
+  - `2` = test
+- Not verified whether clips from the same source video cross splits
+- Split 1 totals: 3,570 train / 1,530 test / 1,666 ignore
 - **Validation set:** carved from official train (15% of train) for
   checkpoint selection during training
 
