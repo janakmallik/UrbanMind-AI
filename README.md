@@ -33,24 +33,28 @@ A research and engineering project that builds end-to-end machine learning syste
 - **Uncertainty** — conformal prediction, calibration
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
-## Status
+## Project Status
 
-🚧 **In development** — Week 6 complete
+🚧 **In development** — Week 7
 
-| Week | Focus | Status |
-|------|-------|--------|
-| 1 | Foundation + classical ML | ✅ Complete |
-| 2 | Time series forecasting | ✅ Complete |
-| 3 | Graph neural networks | ✅ Complete |
-| 4 | Text classification (BERT) | ✅ Complete |
-| 5 | Image classification + transfer learning | ✅ Complete |
-| 6 | Segmentation + object detection | ⬜ Not started |
-| 7 | Video understanding | ⬜ Not started |
-| 8 | Text generation + LLMs | ⬜ Not started |
-| 9 | Multimodal fusion | ⬜ Not started |
-| 10 | Uncertainty + anomaly detection | ⬜ Not started |
-| 11 | Generative models | ⬜ Not started |
-| 12 | MLOps + deployment | ⬜ Not started |
+| Week | Modality | Best Result | Tag |
+|------|----------|-------------|-----|
+| 1 | Tabular (NYC 311) | LightGBM 68.7% accuracy | `v0.2.0-week1` |
+| 2 | Time series (METR-LA) | LightGBM MAE 3.11 mph | `v0.3.0-week2-ml` |
+| 3 | Graph (METR-LA) | Graph WaveNet MAE 3.44 mph | `v0.5.0-week3-gnn` |
+| 4 | Text (NYC 311 descriptor) | DistilBERT 100% (trivial lookup) | `v0.6.0-week4-text` |
+| 5 | Image classification (BDD100K) | ResNet-50 F1 0.6984 | `v0.7.0-week5-image` |
+| **6** | **Segmentation + Detection (BDD100K)** | **SegFormer-B0 mIoU 0.7172** | **`v0.8.0-week6-cv`** |
+| 7 | Video understanding | ⬜ Not started | — |
+| 8 | Text generation / LLMs | ⬜ Not started | — |
+| 9 | Multimodal fusion | ⬜ Not started | — |
+| 10 | Uncertainty + anomaly detection | ⬜ Not started | — |
+| 11 | Generative models | ⬜ Not started | — |
+| 12 | MLOps + deployment | ⬜ Not started | — |
+
+**Total experiments logged:** 25+ trained models across 6 modalities  
+**Total tests:** 40+ passing unit tests  
+**MLflow experiments:** 6 (`urbanintel-week1` through `urbanintel-week6`)
 
 ---
 
@@ -204,6 +208,102 @@ overfitting after epoch 2.
 - Fine-tune: `scripts/train_bdd100k_resnet50.py`
 - MLflow experiment: `urbanintel-week5`
 - Tag: `v0.7.0-week5-image`
+
+---
+
+## Week 6 — BDD100K Segmentation + Detection (Computer Vision Deep Dive)
+
+**Task:** Two CV tasks on BDD100K urban driving data:
+1. **Semantic segmentation:** pixel-level classification into 5 classes
+   (road, sidewalk, vehicle, person, other)
+2. **Object detection:** qualitative demo + quantitative IoU evaluation
+   on 4 aligned classes (person, car, truck, bus)
+
+**Dataset:** BDD100K segmentation subset
+- Segmentation: 7,000 train / 1,000 val images (official split)
+  with pixel-level masks
+- Train/val/test split: 6,000 / 1,000 / 1,000 (test held out from
+  official train, since official BDD100K test has no public labels)
+- Detection: 200 randomly sampled val images for evaluation
+
+### Segmentation results — SegFormer-B0 (5 classes, 20 epochs)
+
+| Split | mIoU |
+|-------|-----:|
+| Validation (best epoch 19) | 0.7480 |
+| **Test (held out)** | **0.7172** |
+
+**Per-class test IoU:**
+
+| Class | IoU | Pixel share |
+|-------|----:|------------:|
+| road | 0.9081 | 22.2% |
+| sidewalk | 0.5377 | 1.6% |
+| vehicle | 0.8538 | 9.6% |
+| person | 0.3319 | 0.11% |
+| other | 0.9547 | 46.5% |
+
+**Training:** 20 epochs, 185s/epoch, ~62 min total on RTX 4050.
+Loss: 0.5 × CE(class-weighted) + 0.5 × Dice with `ignore_index=255`.
+Class weights: `[1.0, 2.0, 1.5, 20.0, 0.5]` for
+`[road, sidewalk, vehicle, person, other]`.
+
+**Key findings:**
+
+1. **Val-test gap of only 0.03** — excellent generalization, no overfitting.
+2. **Person reached 0.33 IoU** despite being only 0.11% of pixels —
+   the 20× class weight was necessary and effective. The class is
+   learnable, not "unlearnable" as pixel frequency alone might suggest.
+3. **Sidewalk reached 0.54 IoU** at 1.6% pixel share — the class
+   is small but consistent enough for a small model to learn well.
+4. **The dominant class ("other" at 46.5%) reached 0.95 IoU** —
+   easy win, but it's a catch-all for many sub-classes.
+
+**Reference:** Published SegFormer-B0 on full 19-class BDD100K
+segmentation achieves ~0.60–0.65 mIoU. Our simplified 5-class task
+achieves 0.72 — the task is easier, but the number is legitimate for
+the task definition.
+
+### Detection results — YOLOv8n (COCO pretrained, 200 images)
+
+**Setup:** IoU threshold 0.5, confidence threshold 0.25.
+Greedy per-class matching. Each GT box matches at most one prediction.
+
+| Class | TP | FP | FN | Precision | Recall | F1 |
+|-------|---:|---:|---:|----------:|-------:|---:|
+| person | 96 | 42 | 260 | 0.696 | 0.270 | 0.389 |
+| car | 758 | 219 | 1243 | 0.776 | 0.379 | 0.509 |
+| truck | 23 | 39 | 70 | 0.371 | 0.247 | 0.297 |
+| bus | 10 | 11 | 30 | 0.476 | 0.250 | 0.328 |
+| **macro** | | | | **0.580** | **0.286** | **0.381** |
+
+**Key finding:** COCO-pretrained YOLOv8n on BDD100K urban footage
+shows the classic **domain-shift signature**:
+- **High precision** (~0.58 macro): when YOLO detects something,
+  it's usually correct
+- **Low recall** (~0.29 macro): YOLO misses most real objects,
+  especially small/distant pedestrians and BDD100K-specific
+  class definitions
+- **Person recall is 0.27** — 73% of pedestrians are missed. This
+  is expected for a COCO model on urban footage where pedestrians
+  are often small and distant.
+
+Lowering the confidence threshold would raise recall at the cost
+of precision — the classic tradeoff that a confidence sweep would
+explore. That is out of scope (Level 2 evaluation: single IoU
+threshold, single confidence threshold).
+
+### Model deliverables
+
+- Segmentation dataset loader: `src/urbanintel/data/bdd100k_segmentation.py`
+- Segmentation training script: `scripts/train_bdd100k_segformer.py`
+- Segmentation inspection: `scripts/inspect_bdd100k_segmentation.py`
+- Detection inference: `scripts/run_yolov8_detection.py`
+- Detection IoU evaluation: `scripts/evaluate_yolov8_iou.py`
+- Model card: `docs/model_cards/bdd100k_segformer_b0_v1.md`
+- Visualizations: `docs/detection_examples/` (12 side-by-side YOLO vs GT images)
+- MLflow experiment: `urbanintel-week6`
+- Tag: `v0.8.0-week6-cv`
 
 ---
 
