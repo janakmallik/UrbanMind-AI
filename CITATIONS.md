@@ -28,11 +28,18 @@ License: UC Berkeley Regents License (research use).
 ### HMDB-51
 Kuehne, H., Jhuang, H., Garrote, E., Poggio, T., & Serre, T. (2011).
 *HMDB: A Large Video Database for Human Motion Recognition*.
-2011 International Conference on Computer Vision (ICCV).
-Pages: 2556-2563.
+IEEE International Conference on Computer Vision (ICCV), 2556-2563.
 DOI: https://doi.org/10.1109/ICCV.2011.6126543
-Repository: http://serre-lab.clps.brown.edu/resource/hmdb-a-large-human-motion-database/
-License: Research use.
+Repository: https://huggingface.co/datasets/Serrelab/hmdb51
+License: CC BY 4.0.
+
+### UCF-Crime
+Sultani, W., Chen, C., & Shah, M. (2018).
+*Real-world Anomaly Detection in Surveillance Videos*.
+IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
+arXiv: https://arxiv.org/abs/1801.04264
+Repository: https://www.crcv.ucf.edu/projects/real-world/
+License: Research use (see original paper).
 
 ## Models / Architectures
 
@@ -64,6 +71,18 @@ Wu, Z., Pan, S., Long, G., Jiang, J., & Zhang, C. (2019).
 *Graph WaveNet for Deep Spatial-Temporal Graph Modeling*.
 International Joint Conference on Artificial Intelligence (IJCAI).
 arXiv: https://arxiv.org/abs/1906.00121
+
+### R(2+1)D
+Tran, D., Wang, H., Torresani, L., Ray, J., LeCun, Y., & Paluri, M. (2018).
+*A Closer Look at Spatiotemporal Convolutions for Action Recognition*.
+IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
+arXiv: https://arxiv.org/abs/1711.11248
+
+### Kinetics-400
+Kay, W., Carreira, J., Simonyan, K., Zhang, B., Hillier, C., Vijayanarasimhan, S.,
+Viola, F., Green, T., Back, T., Natsev, P., Suleyman, M., & Zisserman, A. (2017).
+*The Kinetics Human Action Video Dataset*.
+arXiv: https://arxiv.org/abs/1705.06950
 
 ## Libraries
 
@@ -110,23 +129,9 @@ Paper: Zaharia, M., Chen, A., Davidson, A., Ghodsi, A., Hong, S. A., Konwinski, 
 *Accelerating the Machine Learning Lifecycle with MLflow*.
 IEEE Data Engineering Bulletin, 41(4), 39-45.
 
-### HMDB-51
-Kuehne, H., Jhuang, H., Garrote, E., Poggio, T., & Serre, T. (2011).
-HMDB: A Large Video Database for Human Motion Recognition.
-IEEE International Conference on Computer Vision (ICCV), 2556-2563.
-https://doi.org/10.1109/ICCV.2011.6126543
-
-### R(2+1)D
-Tran, D., Wang, H., Torresani, L., Ray, J., LeCun, Y., & Paluri, M. (2018).
-A Closer Look at Spatiotemporal Convolutions for Action Recognition.
-IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
-https://arxiv.org/abs/1711.11248
-
-### Kinetics
-Kay, W., Carreira, J., Simonyan, K., Zhang, B., Hillier, C., Vijayanarasimhan, S.,
-... & Zisserman, A. (2017).
-The Kinetics Human Action Video Dataset.
-arXiv: https://arxiv.org/abs/1705.06950
+### decord
+*Decord: An Efficient Video Reader for Deep Learning*.
+https://github.com/dmlc/decord
 
 ## Tools
 
