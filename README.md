@@ -70,6 +70,7 @@ A research and engineering project that builds end-to-end machine learning syste
 | 5 | Image classification (BDD100K) | ResNet-50 F1 0.6984 | `v0.7.0-week5-image` |
 | 6 | Segmentation + Detection (BDD100K) | SegFormer-B0 mIoU 0.7172 | `v0.8.0-week6-cv` |
 | **7** | **Video (HMDB-51)** | **R(2+1)D-18 test acc 73.11%** | **`v0.9.1-week7-r2plus1d`** |
+| **7.5** | **Video anomaly (UCF-Crime)** | **R(2+1)D-18 F1 0.4972** | **`v0.9.2-week7-5-ucf-crime`** |
 | 8 | Text generation / LLMs | Not started | — |
 | 9 | Multimodal fusion | Not started | — |
 | 10 | Uncertainty + anomaly detection | Not started | — |
@@ -388,6 +389,65 @@ in video pipeline engineering, not a claim about urban video capability.
   `docs/model_cards/hmdb51_r2plus1d_v1.md`
 - MLflow experiment: `urbanintel-week7`
 - Tags: `v0.9.0-week7-video-pipeline`, `v0.9.1-week7-r2plus1d`
+
+---
+
+---
+
+## Week 7.5 — UCF-Crime Urban Anomaly Classification (Video, 4-class)
+
+**Task:** Classify urban video clips into 4 anomaly categories:
+normal, violence, criminal, public_hazard.
+
+**Dataset:** UCF-Crime, 1,610 source videos → 5,518 training clips
+(16-frame windows, 5 clips/video max, stratified train/val/test by video).
+
+**Model:** R(2+1)D-18 (Kinetics-400 pretrained, 31.3M params), staged fine-tune.
+
+**Important caveat:** UCF-Crime is compiled from YouTube/movies, not
+urban surveillance footage. Clip-level classification with video-level
+labels (not temporal localization). The model flags clips for potential
+anomaly — it does not claim real-world threat detection capability.
+
+### Results (official UCF-Crime Test, 1,406 clips)
+
+| Metric | Value |
+|--------|------:|
+| Official test accuracy | 0.6373 |
+| Official test macro-F1 | 0.4972 |
+| ECE | 0.1255 |
+
+**Per-category F1:**
+
+| Category | F1 |
+|----------|----:|
+| normal | 0.83 |
+| violence | 0.27 |
+| criminal | 0.48 |
+| public_hazard | 0.40 |
+
+**Key findings:**
+
+1. **Staged fine-tuning (freeze → unfreeze at 10× lower LR) improved
+   macro-F1 from 0.4310 → 0.4972** over naive full fine-tuning — a
+   15% relative improvement, driven by fixing catastrophic overfitting.
+
+2. **Violence is the hardest class** (F1 0.27) due to visual ambiguity
+   and 12% class share.
+
+3. **Confidence fallback validated:** High-confidence predictions
+   (>0.70) achieve 73% accuracy; 67% of test predictions route to
+   auto-accept, 33% route to human review.
+
+**Deliverables:**
+- Loader: `src/urbanintel/data/ucf_crime.py`
+- Clip dataset: `src/urbanintel/data/ucf_crime_video.py`
+- Clip builder: `scripts/build_ucf_clips.py`
+- Training: `scripts/train_ucf_crime_4class.py`
+- Inference with fallback: `src/urbanintel/serving/ucf_anomaly_inference.py`
+- Model card: `docs/model_cards/ucf_crime_r2plus1d_v1.md`
+- MLflow experiment: `urbanintel-week7-5`
+- Tag: `v0.9.2-week7-5-ucf-crime`
 
 ---
 

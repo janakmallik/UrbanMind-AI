@@ -632,3 +632,103 @@ pretrained backbones. Training from scratch is a demonstration of
 pipeline engineering, not a strategy for accuracy.
 
 ---
+
+## 2026-10-20 — UCF-Crime 4-class urban anomaly classification (Week 7.5)
+
+**Task:** Classify urban video clips into 4 categories:
+normal, violence, criminal, public_hazard.
+
+**Setup:**
+- Model: R(2+1)D-18 (Kinetics-400 pretrained), 31.3M params
+- Train: 5,518 clips (1,126 videos)
+- Val: 1,180 clips (240 videos)
+- Test: 1,183 clips (244 videos)
+- Official test: 1,406 clips (290 videos)
+- Clip extraction: 16 frames, stride 8, max 5 clips/video
+- Split: stratified by (class, video_id) — no frame-level leakage
+- Loss: class-weighted cross-entropy
+- Augmentation: random crop, horizontal flip (train only)
+
+**Training schedule (staged fine-tuning):**
+- Epochs 1–2: head-only (backbone frozen), LR=1e-4, batch 12
+- Epochs 3+: unfreeze backbone at 10× lower LR (1e-5)
+- WeightedRandomSampler for class balance
+- Early stopping (patience=3, min_delta=0.005)
+- Total: 8 epochs (early stopped), ~35 min
+
+**Results:**
+
+| Metric | Value |
+|---|---:|
+| Best epoch | 5/8 |
+| Best val F1 | 0.5239 |
+| Test accuracy | 0.6492 |
+| Test macro-F1 | 0.5190 |
+| Official test accuracy | 0.6373 |
+| Official test macro-F1 | 0.4972 |
+| ECE | 0.1255 |
+
+**Per-category on official test:**
+
+| Category | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| normal | 0.78 | 0.89 | 0.83 |
+| violence | 0.65 | 0.17 | 0.27 |
+| criminal | 0.43 | 0.56 | 0.48 |
+| public_hazard | 0.38 | 0.43 | 0.40 |
+
+**Confidence fallback (official test):**
+
+| Confidence bucket | Count | Accuracy |
+|---|---:|---:|
+| High (>0.70) | 944 (67%) | 73.31% |
+| Mid (0.40–0.70) | 433 (31%) | 44.11% |
+| Low (<0.40) | 29 (2%) | 44.83% |
+
+**Comparison with naive full fine-tune (no freeze):**
+
+| Metric | Naive | Staged | Delta |
+|---|---:|---:|---:|
+| Official test macro-F1 | 0.4310 | **0.4972** | **+0.066** |
+| Official test accuracy | 0.6024 | **0.6373** | **+0.035** |
+| Violence F1 | 0.16 | **0.27** | **+0.11** |
+| ECE | 0.1763 | **0.1255** | **−0.051** |
+
+**Takeaway:**
+
+Staged fine-tuning (freeze head warmup → unfreeze at 10× lower LR) 
+prevented the catastrophic overfitting observed in naive full 
+fine-tuning. The naive approach peaked at epoch 1 (val F1=0.4907) 
+and declined monotonically; the staged approach peaked at epoch 5 
+(val F1=0.5239) and improved every metric over the naive run.
+
+Key observations:
+
+1. **Violence class is the hardest** (F1 0.27). Visual signals are 
+   ambiguous (punch vs. hug) and it's only 12% of training clips. 
+   Precision is reasonable (0.65) but recall is low (0.17) — the 
+   model is cautious about predicting violence.
+
+2. **Confidence fallback works cleanly.** High-confidence predictions 
+   (67% of test) achieve 73% accuracy. The remaining 33% route to 
+   human review — exactly the safety-critical design intended.
+
+3. **ECE improved from 0.176 to 0.126.** The model is less overconfident.
+
+**Limitations:**
+
+- HMDB-51/UCF-Crime are human action datasets, not urban surveillance
+- Clip-level classification with video-level labels (not temporal localization)
+- 5,518 training clips (small for R(2+1)D-18's 31M params)
+- Violence class remains hard due to visual ambiguity
+
+**Deliverables:**
+- Loader: `src/urbanintel/data/ucf_crime.py`
+- Clip dataset: `src/urbanintel/data/ucf_crime_video.py`
+- Clip builder: `scripts/build_ucf_clips.py`
+- Training: `scripts/train_ucf_crime_4class.py`
+- Inference with fallback: `src/urbanintel/serving/ucf_anomaly_inference.py`
+- MLflow experiment: `urbanintel-week7-5`
+- Tag: `v0.9.2-week7-5-ucf-crime`
+
+---
