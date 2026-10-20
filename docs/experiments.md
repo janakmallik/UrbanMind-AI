@@ -579,3 +579,56 @@ Per-category analysis reveals expected patterns:
 to determine whether transfer learning helps on this small dataset.
 
 ---
+
+## 2026-10-20 — HMDB-51: R(2+1)D-18 vs Tiny3DCNN comparison
+
+**Purpose:** Compare training from scratch (Tiny3DCNN) vs. fine-tuning
+Kinetics-400 pretrained features (R(2+1)D-18) on the same 15-class task.
+
+**Setup:**
+- Same split: 892 train / 158 val / 450 test (official HMDB-51 split 1)
+- Same decoder: decord
+- Same evaluation: best-epoch checkpoint on val macro-F1, test set evaluated once
+- Tiny3DCNN: 1.17M params, from scratch, 15 epochs, batch 4, lr 3e-4
+- R(2+1)D-18: 33M params, Kinetics-400 pretrained, 20 epochs, batch 2,
+  differential lr (backbone 30%, head 3e-4), Kinetics normalization
+
+**Comparison:**
+
+| Model | Params | Pretrained | Test Acc | Test F1 |
+|---|---:|---|---:|---:|
+| Tiny3DCNN (baseline) | 1.17M | ❌ | 0.2533 | 0.2364 |
+| R(2+1)D-18 | 31.3M | ✅ | **0.7311** | **0.7293** |
+| Improvement | | | **+0.4778** | **+0.4929** |
+
+**Per-category accuracy comparison:**
+
+| Category | Tiny3DCNN | R(2+1)D-18 | Δ |
+|---|---:|---:|---:|
+| normal | 26.7% | 73.9% | +47.2 |
+| mobility | 36.7% | 81.7% | +45.0 |
+| anomaly | 25.0% | 70.0% | +45.0 |
+| threat | 22.5% | 70.8% | +48.3 |
+| restricted | 6.7% | 66.7% | +60.0 |
+
+**Takeaway:**
+
+Pretrained R(2+1)D-18 dramatically outperforms the scratch-trained
+Tiny3DCNN. On a single epoch, R(2+1)D-18 achieves 55.33% test
+accuracy — more than double the 25.33% of the 15-epoch scratch
+baseline.
+
+This confirms the well-documented result that **pretrained features
+transfer strongly to fine-grained action recognition**, even on
+small datasets (1,500 clips) with a domain gap (Kinetics → HMDB-51).
+
+**Key insight:** Training a 3D CNN from scratch on 1,500 clips was
+never going to reach state-of-the-art. Pretrained features carry
+spatiotemporal knowledge that transfers immediately, achieving
+competitive results with just one epoch of fine-tuning.
+
+**Implication for the project:** All subsequent video work should use
+pretrained backbones. Training from scratch is a demonstration of
+pipeline engineering, not a strategy for accuracy.
+
+---
