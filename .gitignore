@@ -267,3 +267,8 @@ project_progress_track.md
 *.pt
 *.pth
 bdd_resnet50_best.pt
+# Model checkpoints and MLflow
+hmdb51_3dcnn_best.pt
+mlflow.db
+*.pt
+mlruns/

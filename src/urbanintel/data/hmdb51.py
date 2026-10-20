@@ -200,3 +200,29 @@ def prepare_hmdb51(
         class_names=classes,
         missing_files=missing_files,
     )
+
+
+def filter_corrupt_videos(df, n_frames: int = 16) -> pd.DataFrame:
+    """Remove rows whose videos cannot be decoded.
+
+    Returns filtered DataFrame.
+    """
+    valid_rows = []
+    corrupt = []
+    for _, row in df.iterrows():
+        path = row["video_path"]
+        # Try to open and read first frame
+        cap = cv2.VideoCapture(path)
+        if not cap.isOpened():
+            corrupt.append(path)
+            cap.release()
+            continue
+        ok, _ = cap.read()
+        cap.release()
+        if not ok:
+            corrupt.append(path)
+            continue
+        valid_rows.append(row)
+
+    print(f"Filtered: {len(df)} -> {len(valid_rows)} (dropped {len(corrupt)} corrupt)")
+    return pd.DataFrame(valid_rows).reset_index(drop=True)
