@@ -45,7 +45,7 @@ A research and engineering project that builds end-to-end machine learning syste
 | 4 | Text (NYC 311 descriptor) | DistilBERT 100% (trivial lookup) | `v0.6.0-week4-text` |
 | 5 | Image classification (BDD100K) | ResNet-50 F1 0.6984 | `v0.7.0-week5-image` |
 | **6** | **Segmentation + Detection (BDD100K)** | **SegFormer-B0 mIoU 0.7172** | **`v0.8.0-week6-cv`** |
-| 7 | Video understanding | ⬜ Not started | — |
+| **7** | **Video understanding (HMDB-51)** | **Test acc 0.2533, F1 0.2364** | **`v0.9.0-week7-video-pipeline`** |
 | 8 | Text generation / LLMs | ⬜ Not started | — |
 | 9 | Multimodal fusion | ⬜ Not started | — |
 | 10 | Uncertainty + anomaly detection | ⬜ Not started | — |
@@ -307,6 +307,57 @@ threshold, single confidence threshold).
 
 ---
 
+---
+
+## Week 7 — HMDB-51 15-Class Urban Behavior Recognition (Video)
+
+**Task:** 15-class action recognition on HMDB-51 urban-relevant subset.
+
+**Classes:** stand, walk, sit, eat, drink, hug, run, ride_bike,
+ride_horse, fall_floor, push, hit, punch, shoot_gun, smoke
+
+**Categories for evaluation:** normal, mobility, anomaly, threat, restricted.
+
+**Important caveat:** HMDB-51 is a human action dataset compiled from
+movies and web videos. It is not urban surveillance footage. Actions
+like walk/run/fall_floor are urban-relevant, but the dataset was not
+designed for urban scene understanding. This is a technical exercise
+in video pipeline engineering, not a claim about urban video capability.
+
+### Model comparison (test set, 450 clips)
+
+| Model | Test Acc | Test F1 |
+|-------|---------:|--------:|
+| Majority class | 0.0667 | 0.0083 |
+| Random guess | 0.0667 | 0.0652 |
+| **Tiny3DCNN (from scratch)** | **0.2533** | **0.2364** |
+
+**Per-category test accuracy:**
+
+| Category | Classes | Accuracy |
+|----------|---------|---------:|
+| mobility | run, ride_bike | 36.7% |
+| normal | stand, walk, sit, eat, drink, hug | 26.7% |
+| anomaly | ride_horse, fall_floor | 25.0% |
+| threat | push, hit, punch, shoot_gun | 22.5% |
+| restricted | smoke | 6.7% |
+
+**Key finding:** The model achieves 3.8× the random baseline.
+Performance varies dramatically by category — visually distinct
+actions (mobility) are learned well, while fine-grained or
+visually similar actions (threat, smoke) struggle. This demonstrates
+both a working video pipeline and the limitations of training a
+small 3D CNN from scratch on 1,500 clips.
+
+**Deliverables:**
+- Video dataset loader: `src/urbanintel/data/hmdb51.py`, `hmdb51_video.py`
+- Training script: `scripts/train_hmdb51_3dcnn.py`
+- Model card: `docs/model_cards/hmdb51_3dcnn_v1.md`
+- MLflow experiment: `urbanintel-week7`
+- Tag: `v0.9.0-week7-video-pipeline`
+
+---
+
 ## Why this project
 
 Cities are the only domain where video, images, text, time series, and graphs exist naturally and refer to the same locations and events. That makes urban scene understanding a genuine multimodal problem — not synthetic pairing, not decoration.
@@ -451,9 +502,16 @@ By completing Weeks 1–3:
 
 This is a personal learning and portfolio project. Issues and discussion are welcome, but pull requests are not being accepted at this time.
 
+## References
+
+All datasets, models, and libraries used in this project are documented
+in [CITATIONS.md](CITATIONS.md).
+
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
+
+Dataset licenses vary by source; see CITATIONS.md for per-dataset terms.
 
 ## Acknowledgments
 

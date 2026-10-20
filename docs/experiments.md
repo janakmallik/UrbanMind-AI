@@ -516,3 +516,66 @@ improve these numbers — a natural future experiment.
 
 ---
 
+## 2026-10-20 — HMDB-51 15-class urban behavior recognition (Tiny3DCNN baseline)
+
+**Task:** 15-class human action recognition on HMDB-51 urban-relevant subset.
+
+**Setup:**
+- Classes: stand, walk, sit, eat, drink, hug, run, ride_bike,
+  ride_horse, fall_floor, push, hit, punch, shoot_gun, smoke (15)
+- Categories: normal (6), mobility (2), anomaly (2), threat (4), restricted (1)
+- Train: 892 clips | Val: 158 | Test: 450 (official HMDB-51 split 1)
+- Model: Tiny3DCNN (~1.17M params, 4 conv blocks + global avg pool)
+- Input: 16 frames × 112×112 RGB
+- Loss: class-weighted cross-entropy
+- Optimizer: AdamW, lr=3e-4, cosine annealing over 15 epochs
+- Batch 4, mixed precision (torch.amp)
+- Decoder: decord (OpenCV frame-seek was unreliable on HMDB-51's older .avi files)
+- Checkpoint selection: best validation macro-F1
+
+**Baselines:**
+- Majority class (fall_floor): 6.67% test accuracy, 0.83% macro-F1
+- Random guess: 6.67% test accuracy, 6.52% macro-F1
+
+**Result:**
+
+| Metric | Value |
+|---|---:|
+| Best epoch | 14/15 |
+| Best val macro-F1 | 0.3173 |
+| **Test accuracy** | **0.2533** |
+| **Test macro-F1** | **0.2364** |
+
+**Per-category test accuracy:**
+
+| Category | Classes | Accuracy |
+|---|---|---:|
+| mobility | run, ride_bike | 36.7% (22/60) |
+| normal | stand, walk, sit, eat, drink, hug | 26.7% (48/180) |
+| anomaly | ride_horse, fall_floor | 25.0% (15/60) |
+| threat | push, hit, punch, shoot_gun | 22.5% (27/120) |
+| restricted | smoke | 6.7% (2/30) |
+
+**Takeaway:**
+
+Tiny3DCNN trained from scratch on 1,500 clips achieves 25.33%
+test accuracy — 3.8× the random baseline (6.67%) and 3.8× the
+majority-class baseline. The model learned real signal despite
+the small dataset.
+
+Per-category analysis reveals expected patterns:
+- **Mobility** (run, ride_bike) performs best (36.7%) — visually distinct movement patterns
+- **Normal activities** perform moderately (26.7%) — walk/stand/sit/eat/drink/hug are visually similar (non-aggressive body movement)
+- **Threat** classes struggle (22.5%) — push/hit/punch are fine-grained and often confused
+- **Restricted** (smoke) surprisingly low (6.7%) — equal to baseline, worth investigating in a follow-up (confusion matrix analysis)
+
+**Limitations:**
+- HMDB-51 is human actions from movies/web, not urban surveillance footage
+- 100 clips per class is small for 3D CNN training
+- No pretrained initialization — training from scratch
+- 15-class flat classifier, not hierarchical
+
+**Next step:** Compare against Kinetics-400 pretrained R(2+1)D-18
+to determine whether transfer learning helps on this small dataset.
+
+---
