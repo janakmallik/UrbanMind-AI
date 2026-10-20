@@ -20,9 +20,11 @@ import torch
 from torch.utils.data import Dataset
 
 N_FRAMES = 16
-RESOLUTION = 160
+RESOLUTION = 112
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
 IMAGENET_STD = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+KINETICS_MEAN = np.array([0.43216, 0.394666, 0.37645], dtype=np.float32)
+KINETICS_STD = np.array([0.22803, 0.22145, 0.216989], dtype=np.float32)
 
 
 def sample_frame_indices(total_frames: int, n_frames: int = N_FRAMES) -> np.ndarray:
@@ -74,6 +76,9 @@ class HMDB51VideoDataset(Dataset):
         is_train: if True, apply augmentation.
         n_frames: number of frames per clip.
         resolution: spatial resolution after resize.
+        normalization: "imagenet" (default) or "kinetics".
+            Kinetics-400 normalization matches the input distribution
+            expected by torchvision's R(2+1)D-18 pretrained weights.
     """
 
     def __init__(
@@ -82,11 +87,21 @@ class HMDB51VideoDataset(Dataset):
         is_train: bool = False,
         n_frames: int = N_FRAMES,
         resolution: int = RESOLUTION,
+        normalization: str = "imagenet",
     ):
         self.df = df.reset_index(drop=True)
         self.is_train = is_train
         self.n_frames = n_frames
         self.resolution = resolution
+
+        if normalization == "imagenet":
+            self.mean, self.std = IMAGENET_MEAN, IMAGENET_STD
+        elif normalization == "kinetics":
+            self.mean, self.std = KINETICS_MEAN, KINETICS_STD
+        else:
+            raise ValueError(
+                f"Unknown normalization '{normalization}'. Choose 'imagenet' or 'kinetics'."
+            )
 
     def __len__(self) -> int:
         return len(self.df)
@@ -96,13 +111,13 @@ class HMDB51VideoDataset(Dataset):
         T, H, W, C = frames.shape
         R = self.resolution
 
-        # Resize all frames first (cheaper to resize then crop)
+        # Resize all frames first
         resized = np.empty((T, R, R, C), dtype=np.uint8)
         for i in range(T):
             resized[i] = cv2.resize(frames[i], (R, R), interpolation=cv2.INTER_AREA)
 
         if self.is_train:
-            # Random crop: resize to R+8 then crop back to R
+            # Random crop
             pad = 8
             r2 = R + pad
             padded = np.empty((T, r2, r2, C), dtype=np.uint8)
@@ -112,13 +127,13 @@ class HMDB51VideoDataset(Dataset):
             left = np.random.randint(0, pad + 1)
             resized = padded[:, top : top + R, left : left + R]
 
-            # Random horizontal flip (apply consistently across all frames)
+            # Random horizontal flip
             if np.random.rand() < 0.5:
                 resized = np.ascontiguousarray(resized[:, :, ::-1, :])
 
-        # Convert to float and normalize
+        # Convert to float and normalize using instance attributes
         x = resized.astype(np.float32) / 255.0
-        x = (x - IMAGENET_MEAN) / IMAGENET_STD  # broadcast over (T,H,W,3)
+        x = (x - self.mean) / self.std
         # (T, H, W, C) -> (T, C, H, W)
         x = x.transpose(0, 3, 1, 2)
         return torch.from_numpy(x).float()
@@ -136,21 +151,28 @@ class HMDB51VideoDataset(Dataset):
 
 
 def filter_corrupt_videos(df, n_frames: int = N_FRAMES, verbose: bool = True):
-    """Remove rows whose videos cannot be decoded. Returns filtered DataFrame."""
+    """Remove rows whose videos cannot be decoded.
+
+    Uses the same decoder as the Dataset (decode_frames), so filtering
+    and training see the same set of usable videos.
+    """
     import pandas as pd
 
     valid_rows = []
     corrupt = []
+
     for _, row in df.iterrows():
         frames = decode_frames(row["video_path"], n_frames=n_frames)
         if frames is None:
             corrupt.append(row["video_path"])
         else:
             valid_rows.append(row)
+
     if verbose:
         print(f"Filtered: {len(df)} -> {len(valid_rows)} (dropped {len(corrupt)} corrupt)")
         for p in corrupt[:5]:
             print(f"  {p}")
         if len(corrupt) > 5:
             print(f"  ... and {len(corrupt) - 5} more")
+
     return pd.DataFrame(valid_rows).reset_index(drop=True) if valid_rows else pd.DataFrame()
