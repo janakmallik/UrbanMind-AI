@@ -46,6 +46,7 @@ dependencies = [
     "kagglehub",
     "accelerate>=1.15.0",
     "ultralytics>=8.4.182",
+    "decord==0.6.0",
 ]
 
 [project.optional-dependencies]
