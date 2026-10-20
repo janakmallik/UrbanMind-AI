@@ -2,6 +2,30 @@
 
 A multimodal ML/DL system for urban scene understanding: video, image, text, time series, and graph learning fused into one platform. Covers classical ML through transformers, GNNs, generative models, and MLOps.
 
+## What this is
+
+A **multi-modality** ML/DL platform for urban environments. Over 7 weeks,
+it has built end-to-end systems across:
+
+- **Tabular** (Week 1) — NYC 311 complaint classification
+- **Time series** (Week 2) — METR-LA traffic forecasting
+- **Graph** (Week 3) — road-network spatial dependencies
+- **Text** (Week 4) — DistilBERT on NYC 311 descriptors
+- **Image** (Weeks 5–6) — BDD100K classification, segmentation, detection
+- **Video** (Week 7) — HMDB-51 action recognition, scratch vs. pretrained
+
+Each week ships with:
+- Reproducible code + tests
+- MLflow-tracked experiments
+- Dataset and model cards
+- Honest results including failure modes
+
+**Week 9 will integrate multiple modalities into a fused model.**
+Until then, "multi-modality" describes the breadth of tasks, not a
+single fused pipeline.
+
+---
+
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.6-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -33,9 +57,9 @@ A research and engineering project that builds end-to-end machine learning syste
 - **Uncertainty** — conformal prediction, calibration
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
-## Project Status
+## Project status — 7 of 12 weeks complete
 
-🚧 **In development** — Week 7
+🚧 **In development** — Week 8
 
 | Week | Modality | Best Result | Tag |
 |------|----------|-------------|-----|
@@ -44,17 +68,17 @@ A research and engineering project that builds end-to-end machine learning syste
 | 3 | Graph (METR-LA) | Graph WaveNet MAE 3.44 mph | `v0.5.0-week3-gnn` |
 | 4 | Text (NYC 311 descriptor) | DistilBERT 100% (trivial lookup) | `v0.6.0-week4-text` |
 | 5 | Image classification (BDD100K) | ResNet-50 F1 0.6984 | `v0.7.0-week5-image` |
-| **6** | **Segmentation + Detection (BDD100K)** | **SegFormer-B0 mIoU 0.7172** | **`v0.8.0-week6-cv`** |
-| **7** | **Video understanding (HMDB-51)** | **Test acc 0.2533, F1 0.2364** | **`v0.9.0-week7-video-pipeline`** |
-| 8 | Text generation / LLMs | ⬜ Not started | — |
-| 9 | Multimodal fusion | ⬜ Not started | — |
-| 10 | Uncertainty + anomaly detection | ⬜ Not started | — |
-| 11 | Generative models | ⬜ Not started | — |
-| 12 | MLOps + deployment | ⬜ Not started | — |
+| 6 | Segmentation + Detection (BDD100K) | SegFormer-B0 mIoU 0.7172 | `v0.8.0-week6-cv` |
+| **7** | **Video (HMDB-51)** | **R(2+1)D-18 test acc 73.11%** | **`v0.9.1-week7-r2plus1d`** |
+| 8 | Text generation / LLMs | Not started | — |
+| 9 | Multimodal fusion | Not started | — |
+| 10 | Uncertainty + anomaly detection | Not started | — |
+| 11 | Generative models | Not started | — |
+| 12 | MLOps + deployment | Not started | — |
 
-**Total experiments logged:** 25+ trained models across 6 modalities  
-**Total tests:** 40+ passing unit tests  
-**MLflow experiments:** 6 (`urbanintel-week1` through `urbanintel-week6`)
+**Total experiments logged:** 30+ trained models across 7 modalities
+**Total tests:** 50+ passing unit tests
+**MLflow experiments:** 7 (`urbanintel-week1` through `urbanintel-week7`)
 
 ---
 
@@ -307,8 +331,6 @@ threshold, single confidence threshold).
 
 ---
 
----
-
 ## Week 7 — HMDB-51 15-Class Urban Behavior Recognition (Video)
 
 **Task:** 15-class action recognition on HMDB-51 urban-relevant subset.
@@ -326,41 +348,60 @@ in video pipeline engineering, not a claim about urban video capability.
 
 ### Model comparison (test set, 450 clips)
 
-| Model | Test Acc | Test F1 |
-|-------|---------:|--------:|
-| Majority class | 0.0667 | 0.0083 |
-| Random guess | 0.0667 | 0.0652 |
-| **Tiny3DCNN (from scratch)** | **0.2533** | **0.2364** |
+| Model | Params | Pretrained | Test Acc | Test F1 |
+|-------|-------:|------------|---------:|--------:|
+| Majority class | — | — | 0.0667 | 0.0083 |
+| Random guess | — | — | 0.0667 | 0.0652 |
+| Tiny3DCNN (from scratch) | 1.17M | ❌ | 0.2533 | 0.2364 |
+| **R(2+1)D-18 (Kinetics-400)** | **31.3M** | **✅** | **0.7311** | **0.7293** |
 
 **Per-category test accuracy:**
 
-| Category | Classes | Accuracy |
-|----------|---------|---------:|
-| mobility | run, ride_bike | 36.7% |
-| normal | stand, walk, sit, eat, drink, hug | 26.7% |
-| anomaly | ride_horse, fall_floor | 25.0% |
-| threat | push, hit, punch, shoot_gun | 22.5% |
-| restricted | smoke | 6.7% |
+| Category | Classes | Tiny3DCNN | R(2+1)D-18 | Δ |
+|----------|---------|----------:|-----------:|---:|
+| mobility | run, ride_bike | 36.7% | **81.7%** | +45.0 |
+| normal | stand, walk, sit, eat, drink, hug | 26.7% | **73.9%** | +47.2 |
+| threat | push, hit, punch, shoot_gun | 22.5% | **70.8%** | +48.3 |
+| anomaly | ride_horse, fall_floor | 25.0% | **70.0%** | +45.0 |
+| restricted | smoke | 6.7% | **66.7%** | +60.0 |
 
-**Key finding:** The model achieves 3.8× the random baseline.
-Performance varies dramatically by category — visually distinct
-actions (mobility) are learned well, while fine-grained or
-visually similar actions (threat, smoke) struggle. This demonstrates
-both a working video pipeline and the limitations of training a
-small 3D CNN from scratch on 1,500 clips.
+**Key findings:**
+
+1. **Pretrained features nearly triple accuracy.** R(2+1)D-18 fine-tuned
+   from Kinetics-400 achieves 73.11% test accuracy vs. 25.33% for a
+   scratch-trained 3D CNN on the same 1,500 clips.
+2. **Every category improved by 45+ points.** The biggest gains are in
+   `restricted`/smoke (+60.0) and `threat` (+48.3) — categories that
+   were essentially unlearnable from scratch.
+3. **Transfer learning dominates architecture on small data.** The
+   pretrained model has 27× more parameters than Tiny3DCNN, but the
+   accuracy gain comes from pretraining, not parameter count.
+4. **The pipeline works end-to-end.** decord frame decoding, 16-frame
+   sampling, 3D convolutions, Kinetics normalization, differential
+   learning rates, mixed precision, MLflow tracking.
 
 **Deliverables:**
 - Video dataset loader: `src/urbanintel/data/hmdb51.py`, `hmdb51_video.py`
-- Training script: `scripts/train_hmdb51_3dcnn.py`
-- Model card: `docs/model_cards/hmdb51_3dcnn_v1.md`
+- Baseline training script: `scripts/train_hmdb51_3dcnn.py`
+- Pretrained fine-tune script: `scripts/train_hmdb51_r2plus1d.py`
+- Model cards: `docs/model_cards/hmdb51_3dcnn_v1.md`,
+  `docs/model_cards/hmdb51_r2plus1d_v1.md`
 - MLflow experiment: `urbanintel-week7`
-- Tag: `v0.9.0-week7-video-pipeline`
+- Tags: `v0.9.0-week7-video-pipeline`, `v0.9.1-week7-r2plus1d`
 
 ---
 
-## Why this project
+**Why this project**
 
-Cities are the only domain where video, images, text, time series, and graphs exist naturally and refer to the same locations and events. That makes urban scene understanding a genuine multimodal problem — not synthetic pairing, not decoration.
+Cities are the only domain where video, images, text, time series,
+and graphs exist naturally and refer to the same locations and events.
+
+After 7 weeks of building:
+- Each modality has a working pipeline with honest results
+- The pretrained-vs-scratch comparison (Week 7) shows how
+  transfer learning dominates small-data training
+- The project is a genuine multi-modality platform, with a fused
+  system planned for Week 9
 
 ## Architecture
 
@@ -477,26 +518,89 @@ UrbanMind-AI/
 
 ## Datasets
 
-| Modality | Dataset | Use | Status |
-|----------|---------|-----|--------|
-| Tabular / text | NYC 311 | Urban complaint classification | ✅ Used (Week 1) |
-| Time series | METR-LA | Traffic forecasting | ✅ Used (Weeks 2–3) |
-| Graph | METR-LA adjacency | Sensor spatial structure | ✅ Used (Week 3) |
-| Images | Cityscapes | Semantic segmentation | ⬜ Planned |
-| Video | UCF-Crime, BDD100K | Anomaly / incident detection | ⬜ Planned |
-| Video + text | MSR-VTT | Cross-modal retrieval | ⬜ Planned |
+## Datasets
+
+| Modality | Dataset | Use | Week |
+|----------|---------|-----|------|
+| Tabular + text | NYC 311 | Complaint classification, DistilBERT | 1, 4 |
+| Time series | METR-LA | Traffic forecasting | 2, 3 |
+| Graph | METR-LA adjacency | Spatiotemporal GNN | 3 |
+| Images | BDD100K | Scene classification, segmentation, detection | 5, 6 |
+| Video | HMDB-51 | 15-class action recognition | 7 |
 
 ## Skills covered
 
-By completing Weeks 1–3:
+By completing Weeks 1–7:
 
-- **Classical ML:** XGBoost, LightGBM, Random Forest, logistic regression, hyperparameter tuning with Optuna
-- **Deep learning:** PyTorch, custom training loops, causal convolutions, adaptive graph convolution
-- **Time series:** Chronological splits, sliding windows, multi-horizon forecasting, masked metrics, skill scores
-- **Graph learning:** Adjacency normalization, message passing, adaptive adjacency
-- **Experiment management:** MLflow tracking, reproducibility via dataset hashes and git SHAs
-- **Testing:** Unit tests with synthetic fixtures, causality checks, leakage prevention
-- **Documentation:** Dataset cards, model cards, experiment journal
+### Classical ML
+- XGBoost, LightGBM, Random Forest, logistic regression
+- Hyperparameter tuning (Optuna), stacking, ensembling
+- Class imbalance handling, calibration, cost-sensitive learning
+
+### Deep learning — general
+- PyTorch, custom training loops, mixed precision (`torch.amp`)
+- Transfer learning, differential learning rates, fine-tuning
+- Best-epoch checkpoint selection, early stopping
+- MLflow experiment tracking, model registry patterns
+
+### Time series
+- Chronological splits, sliding windows, multi-horizon forecasting
+- Masked metrics, forecast skill scores, persistence baselines
+- LSTM, TCN, temporal Transformers
+
+### Graph neural networks
+- Adjacency normalization, message passing, adaptive adjacency
+- Graph WaveNet-lite architecture
+- Spatiotemporal forecasting
+
+### NLP / Text
+- HuggingFace `transformers`, tokenizers, fine-tuning
+- DistilBERT classification, TF-IDF baselines
+- Text-based lookup vs. learned classification (leakage awareness)
+
+### Computer vision — classification
+- ResNet-50 fine-tuning, transfer learning from ImageNet
+- Frozen feature extraction + linear classifier
+- Data augmentation (RandomResizedCrop, horizontal flip, color jitter)
+
+### Computer vision — segmentation + detection
+- SegFormer-B0 fine-tuning, 5-class semantic segmentation
+- mIoU evaluation, per-class IoU, confusion matrix
+- Class-weighted CE + Dice loss with `ignore_index` handling
+- YOLOv8 inference on BDD100K (COCO-pretrained, domain shift analysis)
+- IoU-based detection matching (precision, recall, F1 at threshold 0.5)
+
+### Video understanding
+- Frame decoding with decord (reliable vs. OpenCV seek issues)
+- Uniform frame sampling, 3D convolutions
+- R(2+1)D-18 fine-tuning from Kinetics-400, Kinetics normalization
+- Differential learning rates for pretrained backbones
+- Transfer learning vs. scratch training comparison (+47.8 point accuracy gain)
+
+### Experiment management
+- MLflow tracking, run comparison, artifact logging
+- Reproducibility via dataset hashes, git SHAs, seeds
+- Separate experiments for baseline vs. improved approaches
+- Honest reporting of limitations and negative results
+
+### Testing
+- Unit tests with synthetic fixtures (no real dataset needed)
+- Causality checks, leakage prevention
+- Augmentation determinism tests
+- Data contract validation (Pydantic, Pandera)
+
+### Documentation
+- Dataset cards (NYC 311, METR-LA, BDD100K, HMDB-51)
+- Model cards (LightGBM, DistilBERT, ResNet-50, SegFormer, Tiny3DCNN, R(2+1)D-18)
+- Experiments journal (`docs/experiments.md`)
+- Consistent per-week results tables in README
+- Citation tracking (`CITATIONS.md`)
+
+### Engineering practices
+- Reproducible pipelines (uv, locked deps, PyTorch version pinned)
+- Git discipline: feature commits, tags per milestone, clean history
+- Cross-platform scripts (Windows + `uv`, no OS-specific assumptions)
+- No data/artifacts in git (`.gitignore` for `.pt`, `mlflow.db`, `mlruns/`)
 
 ## Contributing
 

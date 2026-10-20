@@ -110,6 +110,24 @@ Paper: Zaharia, M., Chen, A., Davidson, A., Ghodsi, A., Hong, S. A., Konwinski, 
 *Accelerating the Machine Learning Lifecycle with MLflow*.
 IEEE Data Engineering Bulletin, 41(4), 39-45.
 
+### HMDB-51
+Kuehne, H., Jhuang, H., Garrote, E., Poggio, T., & Serre, T. (2011).
+HMDB: A Large Video Database for Human Motion Recognition.
+IEEE International Conference on Computer Vision (ICCV), 2556-2563.
+https://doi.org/10.1109/ICCV.2011.6126543
+
+### R(2+1)D
+Tran, D., Wang, H., Torresani, L., Ray, J., LeCun, Y., & Paluri, M. (2018).
+A Closer Look at Spatiotemporal Convolutions for Action Recognition.
+IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
+https://arxiv.org/abs/1711.11248
+
+### Kinetics
+Kay, W., Carreira, J., Simonyan, K., Zhang, B., Hillier, C., Vijayanarasimhan, S.,
+... & Zisserman, A. (2017).
+The Kinetics Human Action Video Dataset.
+arXiv: https://arxiv.org/abs/1705.06950
+
 ## Tools
 
 ### ultralytics
