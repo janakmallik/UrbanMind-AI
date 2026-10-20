@@ -272,3 +272,6 @@ hmdb51_3dcnn_best.pt
 mlflow.db
 *.pt
 mlruns/
+
+# UCF-Crime generated clips (regenerable via scripts/build_ucf_clips.py)
+data/ucf_crime_clips/
