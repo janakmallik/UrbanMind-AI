@@ -48,6 +48,9 @@ dependencies = [
     "ultralytics>=8.4.182",
     "decord==0.6.0",
     "huggingface-hub[cli]>=1.33.0",
+    "librosa>=0.11.0",
+    "soundfile>=0.14.0",
+    "torchcodec>=0.17.0",
 ]
 
 [project.optional-dependencies]
