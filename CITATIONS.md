@@ -41,6 +41,16 @@ arXiv: https://arxiv.org/abs/1801.04264
 Repository: https://www.crcv.ucf.edu/projects/real-world/
 License: Research use (see original paper).
 
+## UrbanSound8K
+
+Salamon, J., Jacoby, C., & Bello, J. P. (2014). *A Dataset and Taxonomy
+for Urban Sound Research*. Proceedings of the 22nd ACM International
+Conference on Multimedia (MM '14), 1041–1044.
+https://doi.org/10.1145/2647868.2655045
+
+Accessed via the HuggingFace parquet mirror (`ml-data/urbansound8k`),
+8,732 clips across 10 urban sound classes, 10 predefined CV folds.
+
 ## Models / Architectures
 
 ### ResNet
@@ -83,6 +93,16 @@ Kay, W., Carreira, J., Simonyan, K., Zhang, B., Hillier, C., Vijayanarasimhan, S
 Viola, F., Green, T., Back, T., Natsev, P., Suleyman, M., & Zisserman, A. (2017).
 *The Kinetics Human Action Video Dataset*.
 arXiv: https://arxiv.org/abs/1705.06950
+
+## Whisper
+
+Radford, A., Kim, J. W., Xu, T., Brockman, G., McLeavey, C., & Sutskever, I. (2023).
+*Robust Speech Recognition via Large-Scale Weak Supervision*.
+Proceedings of the 40th International Conference on Machine Learning (ICML).
+https://arxiv.org/abs/2212.04356
+
+Used in Week 7.6b as `openai/whisper-tiny` via HuggingFace `transformers`
+for emergency-phrase keyword detection.
 
 ## Libraries
 
