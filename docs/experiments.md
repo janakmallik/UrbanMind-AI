@@ -732,3 +732,106 @@ Key observations:
 - Tag: `v0.9.2-week7-5-ucf-crime`
 
 ---
+
+## 2026-10-21 — UrbanSound8K 10-fold audio event classification (Week 7.6a)
+
+**Task:** Classify 4-second urban audio clips into one of 10 sound classes
+(air_conditioner, car_horn, children_playing, dog_bark, drilling,
+engine_idling, gun_shot, jackhammer, siren, street_music).
+
+**Motivation:** UrbanSound8K adds audio as the 7th modality in the
+project. Two of its classes (`gun_shot`, `siren`) are emergency-relevant —
+these are the audio signals a downstream alert system would act on.
+
+**Setup:**
+- Dataset: UrbanSound8K, 8,732 clips, 10 predefined folds
+- Split protocol: **10-fold cross-validation** (dataset-recommended;
+  NOT a random 80/20 split). Folds are session-stratified, not
+  class-stratified — minority classes vary up to 3.5× between folds
+- Per-fold: 15% of the 9-fold train pool carved as validation
+  (stratified by class)
+- Input: 128-mel log-spectrogram, 4.0 s, hop=512 → shape (128, 173)
+- Preprocessing: cached as a single 2.87 GiB memmap (avoids re-decoding)
+- Per-sample normalization: `(mel - mean) / std`
+- Augmentation (train only): SpecAugment — 50% time-mask, 30% freq-mask
+- Model: 4-block 1D-CNN (Conv1d + BatchNorm + ReLU + MaxPool), ~348K params
+- Loss: class-weighted cross-entropy (weights from global class counts)
+- Optimizer: AdamW, lr=1e-3, weight_decay=1e-4
+- Scheduler: cosine annealing over 15 epochs
+- Batch 32, mixed precision not used
+- Early stopping: patience=3, min_delta=0.005
+- Checkpoint selection: best validation macro-F1
+- Epochs: up to 15 per fold (~80-120 s/epoch on RTX 4050)
+
+**Result (10-fold CV):**
+
+| Metric | Mean ± Std |
+|---|---:|
+| **Test accuracy** | **0.6779 ± 0.0497** |
+| **Test macro-F1** | **0.6878 ± 0.0454** |
+
+**Per-fold results:**
+
+| Fold | Test accuracy | Test macro-F1 | Best val F1 |
+|---:|---:|---:|---:|
+| 1 | 0.6735 | 0.6918 | 0.9115 |
+| 2 | 0.6295 | 0.6401 | 0.9163 |
+| 3 | 0.5708 | 0.5995 | 0.9089 |
+| 4 | 0.6939 | 0.6795 | 0.9082 |
+| 5 | 0.6987 | 0.6883 | 0.8366 |
+| 6 | 0.6561 | 0.6773 | 0.9025 |
+| 7 | 0.6897 | 0.6914 | 0.9090 |
+| 8 | 0.6886 | 0.7033 | 0.9206 |
+| 9 | 0.7071 | 0.7260 | 0.9066 |
+| 10 | 0.7706 | 0.7806 | 0.9087 |
+
+**Baselines:**
+
+| Baseline | Test accuracy |
+|---|---:|
+| Random guess (10 classes) | 0.1000 |
+| Majority class (air_conditioner, ~11.4%) | ~0.114 |
+
+**Key findings:**
+
+1. **Best-epoch val F1 systematically overestimates test F1.** Val F1
+   averages ~0.90 across folds, test F1 averages ~0.69 — a gap of
+   ~0.21. This is best-epoch selection overfitting to a validation
+   set that shares 9-fold provenance with training. Only test F1
+   is a valid generalization estimate. Reported as a limitation.
+
+2. **Fold-to-fold variance is large (±0.05) and data-driven.** Folds
+   are session-stratified, not class-stratified. Fold 10 (test acc
+   0.77) has fewer minority-class clips than fold 3 (0.57). The
+   mean ± std is the honest number.
+
+3. **From-scratch 1D-CNN is competitive with expected range.**
+   0.678 test accuracy is mid-range for from-scratch 1D-CNNs on
+   UrbanSound8K (typical: 0.65–0.72). Pretrained models (AST,
+   PaSST) reach 0.78–0.85, but that is out of scope for Week 7.6.
+
+4. **`gun_shot` (smallest class, 374 clips) is the class that matters
+   most and the one most likely to lag.** Per-class F1 analysis
+   (confusion matrix) is a natural Week 8 follow-up.
+
+**Limitations:**
+
+- 4-second clips only; cannot detect sustained events
+- Single-label classification; real urban audio is overlapped
+- Per-sample normalization discards absolute amplitude
+- No evaluation on live/unseen audio; only held-out predefined folds
+- `gun_shot` F1 likely lags due to class imbalance — the class most
+  relevant to the alert use case is the hardest to learn
+- Global class weights approximate per-fold weights (fold imbalance up to 3.5×)
+
+**Deliverables:**
+- Loader: `src/urbanintel/data/urbansound8k.py`
+- Precompute cache: `scripts/precompute_audio.py`
+- Inspection: `scripts/inspect_urbansound8k.py`, `inspect_urbansound8k_deep.py`
+- Training: `scripts/train_audio_events.py`
+- Dataset card: `docs/dataset_cards/urbansound8k.md`
+- Model card: `docs/model_cards/urbansound8k_audio_cnn_v1.md`
+- MLflow experiment: `urbanintel-week7-6`
+- Tag: `v0.9.3-week7-6-audio`
+
+---

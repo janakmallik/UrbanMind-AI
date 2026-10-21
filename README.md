@@ -13,6 +13,8 @@ it has built end-to-end systems across:
 - **Text** (Week 4) — DistilBERT on NYC 311 descriptors
 - **Image** (Weeks 5–6) — BDD100K classification, segmentation, detection
 - **Video** (Week 7) — HMDB-51 action recognition, scratch vs. pretrained
+- **Video anomaly** (Week 7.5) — UCF-Crime, staged fine-tuning for imbalanced classes
+- **Audio** (Week 7.6) — UrbanSound8K 10-class event classification, 10-fold CV
 
 Each week ships with:
 - Reproducible code + tests
@@ -57,9 +59,15 @@ A research and engineering project that builds end-to-end machine learning syste
 - **Uncertainty** — conformal prediction, calibration
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
-## Project status — 7 of 12 weeks complete
+## Project status — 10 milestones shipped, Week 8 next
 
-🚧 **In development** — Week 8
+✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6
+
+🚧 **Next** — Week 8 (LLMs: LoRA + RAG)
+
+Some milestones have sub-steps (`7.5`, `7.6`) inserted between numbered
+weeks when a follow-on experiment deserved its own tag. Milestones are
+not calendar weeks — they are units of shippable work.
 
 | Week | Modality | Best Result | Tag |
 |------|----------|-------------|-----|
@@ -71,16 +79,17 @@ A research and engineering project that builds end-to-end machine learning syste
 | 6 | Segmentation + Detection (BDD100K) | SegFormer-B0 mIoU 0.7172 | `v0.8.0-week6-cv` |
 | **7** | **Video (HMDB-51)** | **R(2+1)D-18 test acc 73.11%** | **`v0.9.1-week7-r2plus1d`** |
 | **7.5** | **Video anomaly (UCF-Crime)** | **R(2+1)D-18 F1 0.4972** | **`v0.9.2-week7-5-ucf-crime`** |
-| 8 | Text generation / LLMs | Not started | — |
-| 9 | Multimodal fusion | Not started | — |
-| 10 | Uncertainty + anomaly detection | Not started | — |
-| 11 | Generative models | Not started | — |
-| 12 | MLOps + deployment | Not started | — |
+| **7.6** | **Audio (UrbanSound8K)** | **1D-CNN test acc 0.6779, macro-F1 0.6878** | **`v0.9.3-week7-6-audio`** |
+| **7.6b** | **Speech keywords (Whisper-tiny)** | **Not started — conditional on labeled set** | — |
+| 8 | Text generation / LLMs (LoRA + RAG) | Not started | — |
+| 9 | Multimodal fusion (cross-attention, paired data) | Not started | — |
+| 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |
+| 11 | Generative models (VAE / diffusion) | Not started | — |
+| 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |
 
-**Total experiments logged:** 30+ trained models across 7 modalities
+**Total experiments logged:** 35+ trained models across 8 modalities
 **Total tests:** 50+ passing unit tests
-**MLflow experiments:** 7 (`urbanintel-week1` through `urbanintel-week7`)
-
+**MLflow experiments:** 9 (`urbanintel-week1` through `urbanintel-week7-6`)
 ---
 
 ## Week 1 — NYC 311 Complaint Classification (Tabular ML)
@@ -451,6 +460,91 @@ anomaly — it does not claim real-world threat detection capability.
 
 ---
 
+## Week 7.6 — UrbanSound8K Audio Event Classification (Audio)
+
+**Task:** Classify 4-second urban audio clips into one of 10 sound classes:
+air_conditioner, car_horn, children_playing, dog_bark, drilling,
+engine_idling, gun_shot, jackhammer, siren, street_music.
+
+Two of these classes (`gun_shot`, `siren`) are emergency-relevant — they
+are the audio signals a downstream alert system would act on. This week
+adds audio as the 7th modality in the project.
+
+**Dataset:** UrbanSound8K, 8,732 clips, 10 predefined folds.
+Source audio is 44.1 kHz stereo, resampled to 22.05 kHz mono and cached
+as log-mel spectrograms (128 bins × 173 frames, 2.87 GiB memmap).
+
+**Protocol:** 10-fold cross-validation using the **predefined** folds
+(dataset-recommended; NOT a random split). Folds are session-stratified,
+not class-stratified — minority-class counts per fold vary by up to 3.5×
+(see dataset card for the full per-fold class table).
+
+### Results — 1D-CNN 10-fold CV
+
+| Metric | Mean ± Std |
+|--------|-----------:|
+| **Test accuracy** | **0.6779 ± 0.0497** |
+| **Test macro-F1** | **0.6878 ± 0.0454** |
+
+**Per-fold results:**
+
+| Fold | Test accuracy | Test macro-F1 | Best val F1 |
+|---:|---:|---:|---:|
+| 1 | 0.6735 | 0.6918 | 0.9115 |
+| 2 | 0.6295 | 0.6401 | 0.9163 |
+| 3 | 0.5708 | 0.5995 | 0.9089 |
+| 4 | 0.6939 | 0.6795 | 0.9082 |
+| 5 | 0.6987 | 0.6883 | 0.8366 |
+| 6 | 0.6561 | 0.6773 | 0.9025 |
+| 7 | 0.6897 | 0.6914 | 0.9090 |
+| 8 | 0.6886 | 0.7033 | 0.9206 |
+| 9 | 0.7071 | 0.7260 | 0.9066 |
+| 10 | 0.7706 | 0.7806 | 0.9087 |
+
+**Baselines:** random guess = 0.10, majority class = ~0.114. The model
+achieves ~5.9× the random baseline and ~5.9× the majority baseline.
+
+### Key findings
+
+1. **Best-epoch val F1 systematically overestimates test F1.** Val F1
+   averages ~0.90 across folds, but test F1 averages ~0.69. This gap
+   (~0.21) is the effect of best-epoch selection overfitting to a
+   validation set that shares 9-fold provenance with training. Only
+   test F1 is a valid generalization estimate. **Reported as a
+   limitation, not hidden.**
+
+2. **Fold-to-fold std is large (±0.05) and driven by the data.**
+   Folds are session-stratified, not class-stratified: minority-class
+   counts per fold vary by up to 3.5× (`car_horn`: 28 in fold 6 vs
+   98 in fold 5). A fold where the held-out set has fewer
+   minority-class clips (fold 10: 0.77 acc) scores higher than a
+   fold where the test set is harder (fold 3: 0.57 acc). The mean ± std
+   is the honest number.
+
+3. **From-scratch 1D-CNN is competitive with expected range.**
+   0.678 test accuracy is mid-range for from-scratch 1D-CNNs on
+   UrbanSound8K (typical: 0.65–0.72). Pretrained audio models
+   (AST, PaSST) reach 0.78–0.85, but that is out of scope for
+   Week 7.6.
+
+4. **`gun_shot` (smallest class, 374 clips) is the class that matters
+   most and the one most likely to lag.** Per-class F1 analysis
+   (confusion matrix) is a natural Week 8 follow-up; class-weighted
+   loss compensates during training but per-class F1 will be the
+   honest measure.
+
+**Deliverables:**
+- Loader: `src/urbanintel/data/urbansound8k.py`
+- Precompute cache: `scripts/precompute_audio.py`
+- Inspection: `scripts/inspect_urbansound8k.py`, `inspect_urbansound8k_deep.py`
+- Training: `scripts/train_audio_events.py`
+- Dataset card: `docs/dataset_cards/urbansound8k.md`
+- Model card: `docs/model_cards/urbansound8k_audio_cnn_v1.md`
+- MLflow experiment: `urbanintel-week7-6`
+- Tag: `v0.9.3-week7-6-audio`
+
+---
+
 **Why this project**
 
 Cities are the only domain where video, images, text, time series,
@@ -578,15 +672,15 @@ UrbanMind-AI/
 
 ## Datasets
 
-## Datasets
-
 | Modality | Dataset | Use | Week |
-|----------|---------|-----|------|
+|---|---|---|---|
 | Tabular + text | NYC 311 | Complaint classification, DistilBERT | 1, 4 |
 | Time series | METR-LA | Traffic forecasting | 2, 3 |
 | Graph | METR-LA adjacency | Spatiotemporal GNN | 3 |
 | Images | BDD100K | Scene classification, segmentation, detection | 5, 6 |
 | Video | HMDB-51 | 15-class action recognition | 7 |
+| Video anomaly | UCF-Crime | 4-class anomaly classification | 7.5 |
+| Audio | UrbanSound8K | 10-class urban sound events | 7.6 |
 
 ## Skills covered
 
