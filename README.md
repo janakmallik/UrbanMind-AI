@@ -80,7 +80,8 @@ not calendar weeks — they are units of shippable work.
 | **7** | **Video (HMDB-51)** | **R(2+1)D-18 test acc 73.11%** | **`v0.9.1-week7-r2plus1d`** |
 | **7.5** | **Video anomaly (UCF-Crime)** | **R(2+1)D-18 F1 0.4972** | **`v0.9.2-week7-5-ucf-crime`** |
 | **7.6** | **Audio (UrbanSound8K)** | **1D-CNN test acc 0.6779, macro-F1 0.6878** | **`v0.9.3-week7-6-audio`** |
-| **7.6b** | **Speech keywords (Whisper-tiny)** | **Not started — conditional on labeled set** | — |
+| **7.6b** | **Speech keywords (Whisper-tiny)** | **Deferred — see `docs/future_work/`** | — |
+| **7.7** | **Portfolio polish** | **Architecture doc, quickstart, CI, download scripts** | **`v0.9.5-week7-7-polish`, `v0.9.6-week7-7-infra`** |
 | 8 | Text generation / LLMs (LoRA + RAG) | Not started | — |
 | 9 | Multimodal fusion (cross-attention, paired data) | Not started | — |
 | 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |
