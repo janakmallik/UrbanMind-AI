@@ -166,6 +166,28 @@ def train_fold(
     y_test, p_test = evaluate(model, test_loader)
     test_acc = float(accuracy_score(y_test, p_test))
     test_f1 = float(f1_score(y_test, p_test, average="macro"))
+
+    # Save best-epoch checkpoint so the model can be reused for inference.
+    # Only save for single-fold runs (avoids 10-fold overwrite confusion).
+    # Week 7.7 fix: original training script discarded best_state after test.
+    ckpt_dir = Path("checkpoints")
+    ckpt_dir.mkdir(exist_ok=True)
+    ckpt_path = ckpt_dir / f"urbansound8k_audio_cnn_fold{fold}.pt"
+    torch.save(
+        {
+            "model": best_state,
+            "fold": fold,
+            "best_val_f1": best_val_f1,
+            "test_acc": test_acc,
+            "test_f1": test_f1,
+            "classes": URBANSOUND_CLASSES,
+            "n_mels": N_MELS,
+            "num_classes": NUM_CLASSES,
+        },
+        ckpt_path,
+    )
+    print(f"  Saved checkpoint: {ckpt_path}")
+
     return test_acc, test_f1, best_val_f1, len(train_idx), len(val_idx), len(test_idx)
 
 
@@ -248,6 +270,17 @@ def main() -> None:
                 "cv_std_f1_macro": std_f1,
             }
         )
+
+        # If all 10 folds ran, save a summary checkpoint of the best fold.
+        # For single-fold runs, that checkpoint was already saved inside train_fold.
+        if args.single_fold is None and results:
+            best_fold = max(results, key=lambda r: r["f1"])["fold"]
+            src = Path("checkpoints") / f"urbansound8k_audio_cnn_fold{best_fold}.pt"
+            dst = Path("checkpoints") / "urbansound8k_audio_cnn_best.pt"
+            if src.exists():
+                dst.write_bytes(src.read_bytes())
+                print(f"  Best fold: {best_fold} (F1={max(r['f1'] for r in results):.4f})")
+                print(f"  Summary checkpoint: {dst}")
 
 
 if __name__ == "__main__":
