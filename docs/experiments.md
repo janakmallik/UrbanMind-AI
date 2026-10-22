@@ -835,3 +835,41 @@ these are the audio signals a downstream alert system would act on.
 - Tag: `v0.9.3-week7-6-audio`
 
 ---
+
+## 2026-10-22 — Week 8 report baseline (Session 1a)
+
+**Task:** Establish a template baseline for incident report generation
+from multimodal evidence.
+
+**Setup:**
+- 31 synthetic evidence bundles (see dataset card)
+- Template baseline: deterministic enumeration of evidence (no LLM)
+- Evaluation: 6 metrics (see week8_plan.md)
+- MLflow experiment: `urbanintel-week8`
+
+**Result (template baseline):**
+
+Results are measured by running `scripts/evaluate_reports.py --approach template`.
+Paste actual numbers here after first run.
+
+**Takeaway:**
+
+The template is expected to score high on evidence_fidelity,
+signal_coverage, no_hallucination, and severity consistency (it enumerates
+what's in the evidence). It is expected to score low on
+uncertainty_ack, recommendation_quality, and epistemic_clarity (it does
+not reason or recommend). This is a hypothesis, not a measured result.
+
+Session 1b will run Qwen2.5-1.5B zero-shot on the same 31 scenarios and
+compare. The measured difference — if any — is the deliverable.
+
+**Deliverables:**
+- Schema: `src/urbanintel/reporting/schema.py`
+- Template: `src/urbanintel/reporting/template_baseline.py`
+- Scenarios: `src/urbanintel/reporting/scenarios.py`
+- CLI: `scripts/report_baseline.py`
+- Evaluation: `scripts/evaluate_reports.py`
+- Dataset card: `docs/dataset_cards/week8_synthetic_scenarios.md`
+- Tag: `v0.9.7-week8-schema`
+
+---
