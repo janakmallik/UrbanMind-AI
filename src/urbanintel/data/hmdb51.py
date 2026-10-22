@@ -32,6 +32,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+import cv2
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
@@ -91,7 +92,7 @@ class HMDB51Split:
 def parse_split_file(split_path: Path) -> dict[str, int]:
     result = {}
     invalid_lines = []
-    with open(split_path, "r") as f:
+    with open(split_path) as f:
         for line_no, line in enumerate(f, 1):
             parts = line.strip().split()
             if len(parts) < 2:

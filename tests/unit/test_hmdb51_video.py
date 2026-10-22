@@ -69,8 +69,10 @@ def test_decode_frames_shape(synthetic_video: Path):
 
 
 def test_decode_frames_missing_file(tmp_path: Path):
-    with pytest.raises(FileNotFoundError):
-        decode_frames(str(tmp_path / "nonexistent.avi"))
+    # decode_frames returns None for missing files (consistent with the
+    # return type `np.ndarray | None`). Callers should check for None.
+    result = decode_frames(str(tmp_path / "nonexistent.avi"))
+    assert result is None
 
 
 def test_dataset_output_shape(synthetic_video: Path):
