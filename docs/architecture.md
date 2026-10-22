@@ -50,7 +50,7 @@ They share *conventions*, not *code*.
 
 ---
 
-## The seven modality pipelines
+## The shipped modality pipelines
 
 Each row below is *one week* of work with the same deliverables.
 
