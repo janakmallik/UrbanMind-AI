@@ -275,3 +275,7 @@ mlruns/
 
 # UCF-Crime generated clips (regenerable via scripts/build_ucf_clips.py)
 data/ucf_crime_clips/
+
+# Quickstart checkpoint directory
+checkpoints/*.pt
+!checkpoints/.gitkeep
