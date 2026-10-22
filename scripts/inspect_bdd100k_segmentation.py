@@ -8,11 +8,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-import numpy as np
 
 from urbanintel.config import dataset_path
 from urbanintel.data.bdd100k_segmentation import (
-    OUR_CLASSES,
     load_mask,
     prepare_segmentation,
 )

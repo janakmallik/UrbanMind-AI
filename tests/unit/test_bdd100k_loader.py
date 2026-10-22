@@ -3,7 +3,6 @@
 import json
 from pathlib import Path
 
-import pandas as pd
 import pytest
 
 from urbanintel.data.bdd100k import (
@@ -11,7 +10,6 @@ from urbanintel.data.bdd100k import (
     VIABLE_CLASSES,
     _index_images,
     load_labels,
-    prepare_bdd100k,
 )
 
 

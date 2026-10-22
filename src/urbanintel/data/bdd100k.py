@@ -36,7 +36,7 @@ def _index_images(images_root: Path) -> dict[str, Path]:
 
 def load_labels(label_json: Path, image_index: dict[str, Path]) -> pd.DataFrame:
     """Load a BDD100K label JSON and join with image paths."""
-    with open(label_json, "r") as f:
+    with open(label_json) as f:
         records = json.load(f)
 
     rows = []

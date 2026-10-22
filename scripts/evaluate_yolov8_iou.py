@@ -15,7 +15,6 @@ from __future__ import annotations
 import json
 import random
 import sys
-from collections import defaultdict
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -100,7 +99,7 @@ def main() -> None:
 
     print("Loading BDD100K val labels ...")
     val_json = LABEL_DIR / "bdd100k_labels_images_val.json"
-    with open(val_json, "r") as f:
+    with open(val_json) as f:
         val_records = json.load(f)
     records_by_name = {r["name"]: r for r in val_records if "name" in r}
 

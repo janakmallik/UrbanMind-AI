@@ -24,15 +24,15 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+from urbanintel.config import dataset_path
+from urbanintel.data.loaders import load_nyc311
+from urbanintel.data.nyc311_text import prepare_text_data
 from urbanintel.evaluation.classification import (
     masked_accuracy,
     masked_f1_macro,
     per_class_report,
 )
-
-from urbanintel.config import dataset_path
-from urbanintel.data.loaders import load_nyc311
-from urbanintel.data.nyc311_text import prepare_text_data
 
 EXPERIMENT_NAME = "urbanintel-week4"
 MODEL_NAME = "distilbert-base-uncased"

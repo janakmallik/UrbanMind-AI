@@ -5,8 +5,6 @@ Logs metrics and artifacts to MLflow.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import os
 from pathlib import Path
 
@@ -15,7 +13,6 @@ _DB_PATH = (_REPO_ROOT / "mlflow.db").as_posix()  # forward slashes
 os.environ.setdefault("MLFLOW_TRACKING_URI", f"sqlite:///{_DB_PATH}")
 
 import mlflow
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, f1_score

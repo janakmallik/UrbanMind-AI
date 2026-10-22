@@ -23,7 +23,6 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 import matplotlib.pyplot as plt
 import mlflow
-import numpy as np
 from sklearn.compose import ColumnTransformer
 from sklearn.ensemble import (
     HistGradientBoostingClassifier,

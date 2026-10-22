@@ -7,7 +7,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from sklearn.model_selection import GroupShuffleSplit
 
 UCF_ROOT = Path("C:/Users/Janak Mallik/ml-data/ucf-crime-extracted")
 

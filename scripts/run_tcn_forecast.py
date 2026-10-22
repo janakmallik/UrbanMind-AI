@@ -18,7 +18,6 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 import mlflow
 import numpy as np
 import torch
-import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
 from urbanintel.data.metr_la import make_datasets

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sys
-from collections import Counter
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
@@ -55,7 +54,7 @@ def main() -> None:
         if split_files:
             sample = split_files[0]
             print(f"\nSample split file: {sample.name}")
-            with open(sample, "r") as f:
+            with open(sample) as f:
                 lines = f.readlines()[:5]
             for line in lines:
                 print(f"  {line.strip()}")

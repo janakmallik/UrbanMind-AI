@@ -83,7 +83,7 @@ def main() -> None:
 
     print("Loading BDD100K val labels ...")
     val_json = LABEL_DIR / "bdd100k_labels_images_val.json"
-    with open(val_json, "r") as f:
+    with open(val_json) as f:
         val_records = json.load(f)
 
     # Map image name -> full record for GT lookup

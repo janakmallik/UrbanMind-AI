@@ -25,7 +25,6 @@ sys.path.insert(0, str(_REPO_ROOT / "src"))
 
 import matplotlib.pyplot as plt
 import mlflow
-import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import (

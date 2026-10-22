@@ -1,6 +1,5 @@
 """Tests for configuration resolution."""
 
-import os
 from pathlib import Path
 
 from urbanintel.config import DEFAULT_DATA_ROOT, dataset_path, get_data_root

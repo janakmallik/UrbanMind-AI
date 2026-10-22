@@ -6,7 +6,6 @@ import pickle
 from pathlib import Path
 
 import numpy as np
-import torch
 
 
 def load_adjacency(

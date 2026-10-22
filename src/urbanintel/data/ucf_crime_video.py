@@ -5,7 +5,6 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import torch
-from PIL import Image
 from torch.utils.data import Dataset
 
 from urbanintel.data.hmdb51_video import KINETICS_MEAN, KINETICS_STD

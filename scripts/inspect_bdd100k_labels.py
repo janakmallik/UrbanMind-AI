@@ -10,7 +10,6 @@ that provides the same JSON format.
 from __future__ import annotations
 
 import json
-import sys
 from collections import Counter
 from pathlib import Path
 
@@ -18,7 +17,7 @@ LABEL_DIR = Path("C:/Users/Janak Mallik/ml-data/bdd100k/labels")
 
 
 def load_json(path: Path) -> list[dict]:
-    with open(path, "r") as f:
+    with open(path) as f:
         return json.load(f)
 
 

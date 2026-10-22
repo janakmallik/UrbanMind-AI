@@ -37,9 +37,7 @@ import torch.nn as nn
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
-    confusion_matrix,
     f1_score,
-    roc_auc_score,
 )
 from torch.utils.data import DataLoader
 from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
