@@ -7,6 +7,7 @@ docs/week8_plan.md.
 
 from __future__ import annotations
 
+from urbanintel.reporting.header import build_evidence_header
 from urbanintel.reporting.schema import (
     AudioEventEvidence,
     ComplaintEvidence,
@@ -78,9 +79,10 @@ def generate_template_report(bundle: EvidenceBundle) -> IncidentReport:
             f"Absence of signal is NOT evidence of normal conditions."
         )
 
+    header = build_evidence_header(bundle)
     return IncidentReport(
         incident_id=bundle.incident_id,
         severity=severity,
         sources_cited=list(dict.fromkeys(sources_cited)),
-        report_text=" ".join(sentences),
+        report_text=f"{header}\n\n" + " ".join(sentences),
     )
