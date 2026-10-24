@@ -1,0 +1,28 @@
+{
+  "val_clean": {
+    "n": 4727,
+    "class_counts": {
+      "city street": 2951,
+      "highway": 1189,
+      "residential": 587
+    }
+  },
+  "test_clean": {
+    "n": 4745,
+    "class_counts": {
+      "city street": 2945,
+      "highway": 1209,
+      "residential": 591
+    }
+  },
+  "clean_test_metrics": {
+    "accuracy": 0.7818756585879874,
+    "macro_f1": 0.6985976712837719,
+    "n": 4745
+  },
+  "full_test_metrics": {
+    "accuracy": 0.78,
+    "macro_f1": 0.6984,
+    "n": 4932
+  }
+}
