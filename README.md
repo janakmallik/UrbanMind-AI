@@ -13,8 +13,12 @@ it has built end-to-end systems across:
 - **Text** (Week 4) — DistilBERT on NYC 311 descriptors
 - **Image** (Weeks 5–6) — BDD100K classification, segmentation, detection
 - **Video** (Week 7) — HMDB-51 action recognition, scratch vs. pretrained
-- **Video anomaly** (Week 7.5) — UCF-Crime, staged fine-tuning for imbalanced classes
-- **Audio** (Week 7.6) — UrbanSound8K 10-class event classification, 10-fold CV
+- Video anomaly (Week 7.5) — UCF-Crime, staged fine-tuning for imbalanced classes
+- Audio (Week 7.6) — UrbanSound8K 10-class event classification, 10-fold CV
+- Portfolio polish (Week 7.7) — architecture doc, quickstart, CI, download scripts
+- Report generation (Week 8) — Qwen2.5-1.5B generating decision-support field reports from modality evidence
+- Portfolio polish (Week 7.7) — architecture doc, quickstart, CI, download scripts
+- Report generation (Week 8) — Qwen2.5-1.5B generating decision-support field reports from modality evidence
 
 Each week ships with:
 - Reproducible code + tests
@@ -23,8 +27,7 @@ Each week ships with:
 - Honest results including failure modes
 
 **Week 9 will integrate multiple modalities into a fused model.**
-Until then, "multi-modality" describes the breadth of tasks, not a
-single fused pipeline.
+Week 9 is multi-view fusion on BDD100K. Cross-modal fusion (image + text, video + audio) requires paired data not available in this project — see docs/week8_1_policy.md for the honest framing.
 
 ---
 
@@ -51,19 +54,19 @@ A research and engineering project that builds end-to-end machine learning syste
 - **Classical ML** — gradient boosting, ensembles, clustering, anomaly detection
 - **Computer vision** — CNNs, vision transformers, segmentation, object detection
 - **Video understanding** — 3D CNNs, SlowFast, VideoMAE
-- **Text & LLMs** — BERT fine-tuning, seq2seq generation, LoRA, RAG
+- Text & LLMs — BERT fine-tuning, prompt-based report generation (Qwen2.5-1.5B)
 - **Time series** — LSTM, TCN, transformers, probabilistic forecasting
 - **Graph learning** — GCN, GAT, spatiotemporal GNNs
 - **Multimodal fusion** — late, early, cross-attention
-- **Generative models** — VAEs, GANs, diffusion
-- **Uncertainty** — conformal prediction, calibration
+- Generative models — VAEs, GANs, diffusion (planned, Week 11)
+- Uncertainty — conformal prediction, calibration (planned, Week 10)
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
-## Project status — 10 milestones shipped, Week 8 next
+## Project status — 12 milestones shipped, Week 9 in progress
 
-✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6
+✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6, 7.7, 8
 
-🚧 **Next** — Week 8 (LLMs: LoRA + RAG)
+🚧 **In progress** — Week 9 (multi-view fusion on BDD100K)
 
 Some milestones have sub-steps (`7.5`, `7.6`) inserted between numbered
 weeks when a follow-on experiment deserved its own tag. Milestones are
@@ -83,16 +86,16 @@ not calendar weeks — they are units of shippable work.
 | **7.6b** | **Speech keywords (Whisper-tiny)** | **Deferred — see `docs/future_work/`** | — |
 | **7.7** | **Portfolio polish** | **Architecture doc, quickstart, CI, download scripts** | **`v0.9.5-week7-7-polish`, `v0.9.6-week7-7-infra`** |
 | **8** | **Incident report generator (Qwen)** | **Qwen 0.890 ~ 0.902 vs template 0.626** | **`v0.9.8-week8-qwen`** |
-| 9a | Multi-view fusion on BDD100K | Fusion of ResNet/SegFormer/YOLO features | v0.9.9-... |
+| 9a | Multi-view fusion on BDD100K | In progress — Session 4 pending | — |
 | 9b | Cross-modal fusion (attempted) | 311 tabular+text rejected — descriptor is categorical lookup | documented |
 | 9c | Cross-modal fusion (deferred) | Requires paired data (e.g., MAVAD audio+video) | future work |
 | 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |
 | 11 | Generative models (VAE / diffusion) | Not started | — |
 | 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |
 
-**Total experiments logged:** 35+ trained models across 8 modalities
-**Total tests:** 50+ passing unit tests
-**MLflow experiments:** 9 (`urbanintel-week1` through `urbanintel-week7-6`)
+**Total experiments logged:** 40+ trained models across 7 modalities
+**Total tests:** 81 passing unit tests
+**MLflow experiments:** 11 (`urbanintel-week1` through `urbanintel-week8-1`)
 ---
 
 ## Week 1 — NYC 311 Complaint Classification (Tabular ML)
@@ -687,7 +690,7 @@ UrbanMind-AI/
 
 ## Skills covered
 
-By completing Weeks 1–7:
+By completing Weeks 1–8.1:
 
 ### Classical ML
 - XGBoost, LightGBM, Random Forest, logistic regression
@@ -703,17 +706,20 @@ By completing Weeks 1–7:
 ### Time series
 - Chronological splits, sliding windows, multi-horizon forecasting
 - Masked metrics, forecast skill scores, persistence baselines
-- LSTM, TCN, temporal Transformers
+- TCN (2 dilated causal blocks)
 
 ### Graph neural networks
 - Adjacency normalization, message passing, adaptive adjacency
 - Graph WaveNet-lite architecture
-- Spatiotemporal forecasting
+- Spatiotemporal forecasting (GCN + temporal convolution)
 
 ### NLP / Text
 - HuggingFace `transformers`, tokenizers, fine-tuning
 - DistilBERT classification, TF-IDF baselines
 - Text-based lookup vs. learned classification (leakage awareness)
+- Prompt-based structured generation (Qwen2.5-1.5B, 4-bit)
+- Constraint enforcement (forbidden phrases, required sections)
+- Policy-compliant LLM output
 
 ### Computer vision — classification
 - ResNet-50 fine-tuning, transfer learning from ImageNet
@@ -734,11 +740,19 @@ By completing Weeks 1–7:
 - Differential learning rates for pretrained backbones
 - Transfer learning vs. scratch training comparison (+47.8 point accuracy gain)
 
+### Multimodal fusion
+- Multi-view fusion (in progress, Week 9): 3 vision models → 1 classifier head
+- Output-level evidence aggregation (Week 8: 7 modality outputs → LLM report)
+- Feature extraction on frozen encoders (frozen ResNet, SegFormer, YOLO)
+- Split verification (reproduce published metrics before reuse)
+- Contamination filtering (SegFormer train ∩ ResNet test = 187 images excluded)
+
 ### Experiment management
 - MLflow tracking, run comparison, artifact logging
 - Reproducibility via dataset hashes, git SHAs, seeds
 - Separate experiments for baseline vs. improved approaches
 - Honest reporting of limitations and negative results
+- Negative result documentation (Week 9.5: 311 tabular+text rejected)
 
 ### Testing
 - Unit tests with synthetic fixtures (no real dataset needed)
@@ -747,10 +761,11 @@ By completing Weeks 1–7:
 - Data contract validation (Pydantic, Pandera)
 
 ### Documentation
-- Dataset cards (NYC 311, METR-LA, BDD100K, HMDB-51)
-- Model cards (LightGBM, DistilBERT, ResNet-50, SegFormer, Tiny3DCNN, R(2+1)D-18)
+- Dataset cards (NYC 311, METR-LA, BDD100K, HMDB-51, UrbanSound8K, UCF-Crime, synthetic scenarios)
+- Model cards (LightGBM, DistilBERT, ResNet-50, SegFormer, Tiny3DCNN, R(2+1)D-18, audio CNN, Qwen report generator)
 - Experiments journal (`docs/experiments.md`)
-- Consistent per-week results tables in README
+- Policy documents (`docs/week8_1_policy.md`)
+- Architecture doc (`docs/architecture.md`)
 - Citation tracking (`CITATIONS.md`)
 
 ### Engineering practices
@@ -758,6 +773,15 @@ By completing Weeks 1–7:
 - Git discipline: feature commits, tags per milestone, clean history
 - Cross-platform scripts (Windows + `uv`, no OS-specific assumptions)
 - No data/artifacts in git (`.gitignore` for `.pt`, `mlflow.db`, `mlruns/`)
+- CI via GitHub Actions (pytest + ruff on every push)
+- Download scripts for all datasets
+- Quickstart script (run one model in <30s)
+
+### Planned (not yet built)
+- Cross-modal fusion on paired data (Week 10+, requires new dataset)
+- Uncertainty + conformal prediction (Week 10)
+- Generative models (VAE, GAN, diffusion — Week 11)
+- FastAPI serving + Docker (Week 12)
 
 ## Contributing
 
