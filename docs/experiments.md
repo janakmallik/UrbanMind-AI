@@ -873,3 +873,105 @@ compare. The measured difference — if any — is the deliverable.
 - Tag: `v0.9.7-week8-schema`
 
 ---
+
+## 2026-10-22 — Week 8: Incident report generation (Qwen vs template)
+
+**Task:** Generate a natural-language incident report from structured
+evidence (video anomaly, audio events, image scene, segmentation,
+traffic forecast, complaints) — decision-support for a human responder,
+not automated enforcement.
+
+**Setup:**
+- 31 synthetic scenarios (see `docs/dataset_cards/week8_synthetic_scenarios.md`)
+- Template baseline: deterministic enumeration of evidence
+- Qwen baseline: `Qwen2.5-1.5B-Instruct` (4-bit NF4), few-shot prompting
+- Evaluation: 5 constraint checks (see `docs/week8_1_policy.md`)
+- MLflow experiment: `urbanintel-week8-1`
+
+**Result:**
+
+| Metric | Template | Qwen | Δ |
+|---|---:|---:|---:|
+| Source availability | 0.763 | 0.839 | +0.076 |
+| Forbidden phrase | 1.000 | 0.871 | −0.129 |
+| Scenario specific | 0.952 | 0.984 | +0.032 |
+| Policy compliance | 0.032 | 0.903 | +0.871 |
+| Section separation | 0.000 | 1.000 | +1.000 |
+| **Overall** | **0.626** | **0.902** | **+0.276** |
+
+**Key findings:**
+
+1. **Qwen outperforms template significantly** — from 0.626 to 0.902
+   across the honest metrics. The template is a log dump; Qwen produces
+   a structured field report with OBSERVED / INTERPRETATION / UNKNOWN /
+   RECOMMENDED FOLLOW-UP sections.
+
+2. **The first (unfixed) evaluator was tautological.** Original metrics
+   (evidence_fidelity, signal_coverage, no_hallucination,
+   severity_consistency) were broken — `no_hallucination` was guaranteed
+   to score 1.0 by construction. The initial 0.956 score was inflated.
+
+3. **Qwen's remaining weakness is forbidden phrase violations** — 5 of
+   31 scenarios contain at least one prohibited phrase (e.g., "criminal
+   activity" when the model should say "the classifier placed this event
+   in its criminal category"). Documented as a small-model limitation.
+
+4. **The policy was revised** — Week 8.1 changed "escalate = dispatch"
+   to "escalate = urgent human review." The system is decision-support,
+   not dispatch. This change is enforced in the prompt and the evaluator.
+
+**Limitations:**
+- 31 synthetic scenarios, not real incidents
+- Cross-modal co-occurrence is synthetic (video and audio datasets not paired)
+- Qwen-1.5B is small; a larger model would reduce forbidden phrase violations
+- Human rubric not performed
+
+**Deliverables:**
+- Schema: `src/urbanintel/reporting/schema.py`
+- Template: `src/urbanintel/reporting/template_baseline.py`
+- Qwen generator: `src/urbanintel/reporting/qwen_generator.py`
+- Header: `src/urbanintel/reporting/header.py`
+- Scenarios: `src/urbanintel/reporting/scenarios.py`
+- Policy: `docs/week8_1_policy.md`
+- Model card: `docs/model_cards/week8_report_qwen_v1.md`
+- Dataset card: `docs/dataset_cards/week8_synthetic_scenarios.md`
+- MLflow: `urbanintel-week8-1`
+- Tags: `v0.9.7-week8-schema`, `v0.9.8-week8-qwen`
+
+---
+
+## 2026-10-24 — Week 9.5 gate: NYC 311 tabular+text fusion viability audit
+
+**Hypothesis:** Fuse 311 tabular features + descriptor text to predict
+resolution time (`resolved within 7 days`). If text predicts resolution
+better than categorical encoding, this is true cross-modal fusion.
+
+**Data:** NYC 311, 100,000 complaints, 98,926 with valid created+closed
+dates, date range 2020-07-13 to 2026-10-01.
+
+**Result:**
+- Target: 86.0% close in ≤7 days, 14.0% take longer
+- Majority-class macro-F1: 0.123 (imbalanced target)
+- TF-IDF + LogReg 5-fold CV: 0.802 ± 0.015
+- Descriptor one-hot + LogReg 5-fold CV: 0.804 ± 0.018
+- **TF-IDF − one-hot: −0.002**
+
+**Interpretation:** The descriptor behaves as a categorical lookup, not
+linguistic text. TF-IDF and one-hot encoding produce identical F1 (within
+noise). DistilBERT would similarly fail to beat categorical encoding.
+
+**Decision:** 311 text+tabular fusion is **NOT viable** as a true
+cross-modal experiment. The "text" is a categorical lookup, not linguistic
+signal. Same trap as Week 4's trivial DistilBERT task.
+
+**Documented as negative result.** Week 9.5 does not proceed. Cross-modal
+fusion requires genuinely different input types (e.g., audio + video on
+paired data), not categorical encodings in text format.
+
+**Deliverables:**
+- Audit script: `scripts/audit_nyc311.py`
+- Raw result: 5-fold CV on 98,926 complaints
+- Tag: included in `v0.9.9-week9-multiview-fusion` documentation
+
+---
+
