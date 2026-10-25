@@ -86,7 +86,7 @@ not calendar weeks — they are units of shippable work.
 | **7.6b** | **Speech keywords (Whisper-tiny)** | **Deferred — see `docs/future_work/`** | — |
 | **7.7** | **Portfolio polish** | **Architecture doc, quickstart, CI, download scripts** | **`v0.9.5-week7-7-polish`, `v0.9.6-week7-7-infra`** |
 | **8** | **Incident report generator (Qwen)** | **Qwen 0.890 ~ 0.902 vs template 0.626** | **`v0.9.8-week8-qwen`** |
-| 9a | Multi-view fusion on BDD100K | In progress — Session 4 pending | — |
+| **9a** | **Multi-view fusion (BDD100K)** | **Fusion 0.6910 vs ResNet 0.6986 (CI includes 0); residential recall 0.41→0.67** | **`v0.9.9-week9-multiview-fusion`** |
 | 9b | Cross-modal fusion (attempted) | 311 tabular+text rejected — descriptor is categorical lookup | documented |
 | 9c | Cross-modal fusion (deferred) | Requires paired data (e.g., MAVAD audio+video) | future work |
 | 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |

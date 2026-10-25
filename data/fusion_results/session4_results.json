@@ -1,0 +1,112 @@
+[
+  {
+    "name": "ResNet-only stacker",
+    "cv_acc_mean": 0.7058035399478175,
+    "cv_acc_std": 0.002938109675763281,
+    "cv_f1_mean": 0.6644400144925275,
+    "cv_f1_std": 0.002204725039488294,
+    "test_acc_mean": 0.7043203371970496,
+    "test_acc_std": 0.0,
+    "test_f1_mean": 0.6661813426073456,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "SegFormer-only stacker",
+    "cv_acc_mean": 0.5604682321415979,
+    "cv_acc_std": 0.0003595669920028662,
+    "cv_f1_mean": 0.49980014142366197,
+    "cv_f1_std": 0.0010620472126714278,
+    "test_acc_mean": 0.5355110642781876,
+    "test_acc_std": 0.0,
+    "test_f1_mean": 0.4790478631569432,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "YOLO-only stacker",
+    "cv_acc_mean": 0.4916437486778083,
+    "cv_acc_std": 0.0012455765977473906,
+    "cv_f1_mean": 0.4606947199327643,
+    "cv_f1_std": 0.002092978012868001,
+    "test_acc_mean": 0.48724973656480514,
+    "test_acc_std": 5.551115123125783e-17,
+    "test_f1_mean": 0.4561899833483765,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "Full fusion (3+5+6)",
+    "cv_acc_mean": 0.7365489034623792,
+    "cv_acc_std": 0.0022477085467187234,
+    "cv_f1_mean": 0.6862956898707414,
+    "cv_f1_std": 0.0026224249477403917,
+    "test_acc_mean": 0.7371970495258168,
+    "test_acc_std": 1.1102230246251565e-16,
+    "test_f1_mean": 0.6909517519462609,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "Ablation: no ResNet",
+    "cv_acc_mean": 0.6071504125237994,
+    "cv_acc_std": 0.002714671258010077,
+    "cv_f1_mean": 0.5429515335517722,
+    "cv_f1_std": 0.004017374723502204,
+    "test_acc_mean": 0.5903055848261328,
+    "test_acc_std": 0.0,
+    "test_f1_mean": 0.5325066180907799,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "Ablation: no SegFormer",
+    "cv_acc_mean": 0.7251251674776108,
+    "cv_acc_std": 0.002319566208786181,
+    "cv_f1_mean": 0.6816806516472452,
+    "cv_f1_std": 0.0028666633313497118,
+    "test_acc_mean": 0.7216016859852475,
+    "test_acc_std": 1.1102230246251565e-16,
+    "test_f1_mean": 0.6803718602003043,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "Ablation: no YOLO",
+    "cv_acc_mean": 0.7362668359071999,
+    "cv_acc_std": 0.002001984284123629,
+    "cv_f1_mean": 0.6869142760507826,
+    "cv_f1_std": 0.002807495402549989,
+    "test_acc_mean": 0.7357218124341413,
+    "test_acc_std": 0.0,
+    "test_f1_mean": 0.6899243655535998,
+    "test_f1_std": 0.0,
+    "best_test_f1": -1.0,
+    "best_seed": null
+  },
+  {
+    "name": "Original Resnet (checkpoint)",
+    "test_acc_mean": 0.7818756585879874,
+    "test_acc_std": 0.0,
+    "test_f1_mean": 0.6985976712837719,
+    "test_f1_std": 0.0,
+    "cv_acc_mean": null,
+    "cv_acc_std": null,
+    "cv_f1_mean": null,
+    "cv_f1_std": null
+  },
+  {
+    "bootstrap_ci_fusion_vs_resnet": {
+      "delta": -0.00764591933751102,
+      "ci_low": -0.022939354717529663,
+      "ci_high": 0.009055028547223638,
+      "p_improvement": 0.191
+    }
+  }
+]

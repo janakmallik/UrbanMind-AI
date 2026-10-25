@@ -975,3 +975,83 @@ paired data), not categorical encodings in text format.
 
 ---
 
+## 2026-10-25 — Week 9a: Multi-view fusion on BDD100K (negative result)
+
+**Task:** Fuse ResNet-50 + SegFormer-B0 + YOLOv8n features to predict
+scene classification (city / highway / residential) on BDD100K.
+
+**Setup:**
+- 14 features: 3 ResNet probs + 5 SegFormer pixel shares + 6 YOLO counts
+- Model: LightGBM classifier with `class_weight="balanced"`
+- Train: 4,727 clean images (ResNet's val split, contamination filtered)
+- Test: 4,745 clean images (ResNet's test split, contamination filtered)
+- Protocol: 5-fold stratified CV on train; test evaluated per
+  configuration × 3 seeds (42, 123, 7). Mean ± std reported.
+- Contamination filter: 187 images excluded from test, 205 from train
+  (SegFormer train ∩ ResNet split)
+- Feature provenance: 4,727 train images are from ResNet's **validation**
+  split (not training). Overlap with ResNet train IDs = 0.
+
+**Result:**
+
+| Model | Test acc | Test macro-F1 |
+|---|---:|---:|
+| ResNet-only stacker | 0.7043 | 0.6662 |
+| SegFormer-only stacker | 0.5355 | 0.4790 |
+| YOLO-only stacker | 0.4872 | 0.4562 |
+| **Full fusion (14)** | **0.7372** | **0.6910** |
+| Ablation: no ResNet | 0.5903 | 0.5325 |
+| Ablation: no SegFormer | 0.7216 | 0.6804 |
+| Ablation: no YOLO | 0.7357 | 0.6899 |
+| **Original ResNet** | **0.7819** | **0.6986** |
+
+**Bootstrap CI on macro-F1 difference (fusion − ResNet):**
+- Point estimate: −0.0076
+- 95% CI: [−0.0229, +0.0091]
+- P(fusion > ResNet): 0.191
+- Method: 1,000 resamples, paired, percentile
+
+**Per-class (clean_test, n=4,745):**
+
+| Model | Class | Precision | Recall | F1 |
+|---|---|---:|---:|---:|
+| Fusion | city | 0.85 | 0.73 | 0.79 |
+| Fusion | highway | 0.68 | 0.78 | 0.72 |
+| Fusion | residential | 0.48 | **0.67** | 0.56 |
+| ResNet | city | 0.80 | 0.88 | 0.84 |
+| ResNet | highway | 0.74 | 0.72 | 0.73 |
+| ResNet | residential | 0.74 | **0.41** | 0.53 |
+
+**Key findings:**
+
+1. **Fusion does NOT improve overall macro-F1.** −0.0076 point estimate,
+   95% CI includes zero. Cannot claim better or worse statistically. The
+   point estimate favors ResNet.
+
+2. **Ablation shows ResNet dominates.** Removing ResNet drops F1 from
+   0.6910 to 0.5325 (−0.158). SegFormer contributes +0.011 (marginal).
+   YOLO contributes +0.001 (nothing — redundant with ResNet's visual
+   features).
+
+3. **Fusion improves residential recall dramatically.** +0.26 (0.41 →
+   0.67), at the cost of overall accuracy (−0.045) and city-street recall
+   (−0.15). This is a precision-recall trade-off, not a general win.
+
+4. **The trade-off is a legitimate application.** When accuracy-equity
+   trade-offs matter (e.g., detecting residential scenes is prioritized
+   over overall accuracy), fusion is a valid tool.
+
+**Limitations:**
+- Multi-view fusion on one modality, not cross-modal
+- Test set reused 22 times (exploratory, not untouched benchmark)
+- ResNet val-split features are post-checkpoint-selection, not pristine
+- Small training data (4,727 images)
+
+**Deliverables:**
+- Model card: `docs/model_cards/bdd100k_multiview_fusion_v1.md`
+- Training script: `scripts/train_bdd100k_fusion.py`
+- Feature extraction: `scripts/extract_fusion_features.py`
+- Raw metrics: `data/fusion_results/session4_results.json`
+- Tag: `v0.9.9-week9-multiview-fusion`
+
+---
