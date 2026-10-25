@@ -34,6 +34,26 @@ Week 9 is multi-view fusion on BDD100K. Cross-modal fusion (image + text, video 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.6-red.svg)](https://pytorch.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![CI](https://github.com/janakmallik/UrbanMind-AI/actions/workflows/ci.yml/badge.svg)](https://github.com/janakmallik/UrbanMind-AI/actions/workflows/ci.yml)
+
+
+## How to read this repo
+
+This is a 9-week portfolio project. If you're new, here's the fastest path:
+
+1. **Start with the README's roadmap table** (below) — 13 tags across 9 weeks of shipped work.
+2. **Pick one week that interests you.** Read its README section + model card + dataset card. Each week is a self-contained unit with:
+   - Problem definition
+   - Dataset audit (what's real, what's limited)
+   - Model comparison table (baselines vs. our approach)
+   - Honest failures and limitations (not hidden)
+3. **Look at `docs/architecture.md`** for the system view — how the 7 modalities relate.
+4. **Read `docs/week8_1_policy.md`** — the safety policy for the report generator. It's the closest thing to a "production considerations" doc in the repo.
+5. **Check `docs/experiments.md`** — the running journal. Every experiment, every negative result, documented.
+6. **Look at the model cards** in `docs/model_cards/` — 8 cards, one per trained model, each with what it does and doesn't do.
+
+**The honest summary:** 7 modalities trained independently, 1 multi-view fusion experiment (Week 9a), 1 report generator (Week 8), and honest documentation of what worked and what didn't. The README is the entry point; the docs directory is where the real detail lives.
+
 
 ## Project summary
 
@@ -62,11 +82,11 @@ A research and engineering project that builds end-to-end machine learning syste
 - Uncertainty — conformal prediction, calibration (planned, Week 10)
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
-## Project status — 12 milestones shipped, Week 9 in progress
+## Project status — Weeks 1–9a complete, Week 10 next
 
-✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6, 7.7, 8
+✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6, 7.7, 8, 9a
 
-🚧 **In progress** — Week 9 (multi-view fusion on BDD100K)
+🚧 **Next** — Week 10 (uncertainty + calibration)
 
 Some milestones have sub-steps (`7.5`, `7.6`) inserted between numbered
 weeks when a follow-on experiment deserved its own tag. Milestones are

@@ -108,3 +108,38 @@ The IEEE Conference on Computer Vision and Pattern Recognition (CVPR).
 | Date | Notes |
 |---|---|
 | 2026-10-17 | Initial dataset card. Scene label audit complete. |
+
+---
+
+## Week 9a — Derived fusion features
+
+Week 9a extracted 14 numeric features per image from three pretrained
+models processing the same BDD100K images:
+
+| Feature group | Source model | Features | Preprocessing |
+|---|---|---|---|
+| ResNet probabilities | `bdd_resnet50_best.pt` | 3 class probs | Resize(256) → CenterCrop(224) → ImageNet norm |
+| SegFormer pixel shares | `bdd_segformer_b0_best.pt` | 5 class shares | Resize(512×512) → ImageNet norm (custom numpy) |
+| YOLO detection counts | `yolov8n.pt` (COCO pretrained) | 6 class counts | Ultralytics default |
+
+**Extracted on:**
+- 4,727 clean train images (ResNet val split, minus 205 contaminated)
+- 4,745 clean test images (ResNet test split, minus 187 contaminated)
+
+**Contamination filtering:** 187 test images and 205 val images were
+excluded because they were in SegFormer's training set (`seg/images/train`).
+This is documented to avoid upstream leakage (SegFormer features on those
+images would be in-sample).
+
+**Cached at:** `data/features/bdd100k_fusion/{train,test}.parquet`
+(gitignored, ~1 MB each; reproducible via `scripts/extract_fusion_features.py`)
+
+**Feature provenance:** the 4,727 train images are from ResNet's
+*validation* split, not training. Overlap check against ResNet's training
+IDs returned 0 matches. Residual concern: val split influenced checkpoint
+selection (best-epoch); features are not fully pristine but are not
+in-sample.
+
+**Not committed:** the parquet files are gitignored (generated artifacts).
+Only the extraction script and the derived metrics
+(`data/fusion_results/session4_results.json`) are committed.

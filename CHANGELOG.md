@@ -5,6 +5,69 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.9.9-week9-multiview-fusion] — 2026-10-25
+
+Week 9a — Multi-view fusion on BDD100K (negative result).
+
+### Added
+- `scripts/reconstruct_resnet_split.py` — reproduce ResNet's BDD100K split (verified 0.7800 acc / 0.6984 F1)
+- `scripts/verify_resnet_split.py` — verify split reconstruction against published metrics
+- `scripts/prepare_fusion_data.py` — contamination filtering (SegFormer train ∩ ResNet val/test)
+- `scripts/extract_fusion_features.py` — 14-feature extraction (ResNet 3 + SegFormer 5 + YOLO 6)
+- `scripts/train_bdd100k_fusion.py` — fusion head training + 8-model comparison + bootstrap CI
+- `scripts/audit_nyc311.py` — 311 tabular+text fusion gate (rejected — descriptor is categorical lookup)
+- `src/urbanintel/reporting/header.py` — shared evidence header for template + Qwen
+- `data/splits/` — split manifests for reproducibility (clean/excluded ID lists)
+- `data/features/bdd100k_fusion/` — 14-feature parquet files (train/test)
+- `data/fusion_results/session4_results.json` — raw metrics from 8-model comparison
+- `docs/model_cards/bdd100k_multiview_fusion_v1.md` — model card with all results + limitations
+
+### Results
+- **Full fusion (14 features):** 0.7372 test acc / 0.6910 test macro-F1
+- **Original ResNet checkpoint:** 0.7819 test acc / 0.6986 test macro-F1
+- **Bootstrap CI on macro-F1 difference:** [−0.0229, +0.0091], P(fusion > ResNet) = 0.191
+- **Residential recall:** 0.41 (ResNet) → 0.67 (fusion), +0.26 trade-off
+- Ablation: ResNet features dominate (−0.158 without), SegFormer marginal (−0.011), YOLO redundant (−0.001)
+
+### Documented
+- **Negative result:** Multi-view fusion does not improve overall accuracy over the original ResNet
+- **Class trade-off:** Fusion improves residential recall at the cost of overall accuracy
+- **Same-modality caveat:** All three models process images. Not cross-modal.
+- **311 fusion rejected:** Descriptor is a categorical lookup, not linguistic signal (TF-IDF ≈ one-hot)
+
+---
+
+## [v0.9.8-week8-qwen] — 2026-10-22
+
+Week 8 — Incident report generation (Qwen2.5-1.5B).
+
+### Added
+- `src/urbanintel/reporting/schema.py` — Pydantic evidence schema for 6 modality sources
+- `src/urbanintel/reporting/template_baseline.py` — deterministic template report generator
+- `src/urbanintel/reporting/qwen_generator.py` — Qwen2.5-1.5B 4-bit NF4 report generator
+- `src/urbanintel/reporting/scenarios.py` — 31 synthetic incident scenarios
+- `scripts/report_baseline.py`, `scripts/generate_qwen_report.py`, `scripts/evaluate_reports.py`
+- `scripts/feasibility_qwen.py` — VRAM check (1.15 GB model, 2.19 GB peak, 4.25 GB headroom)
+- `tests/unit/test_reporting.py` — 11 unit tests
+- `tests/unit/test_week8_1_regression.py` — 10 regression tests
+- `docs/week8_plan.md`, `docs/week8_1_policy.md`
+- `docs/dataset_cards/week8_synthetic_scenarios.md`
+- `docs/model_cards/week8_report_qwen_v1.md`
+
+### Results
+- **Template baseline:** 0.626 overall on corrected metrics
+- **Qwen zero-shot:** 0.890–0.902 overall (two runs, temperature=0.3)
+- **Gap:** +0.264 to +0.276
+
+### Fixed
+- **Week 8 evaluator was tautological:** `no_hallucination` was guaranteed 1.0 by construction; `severity_consistency` used the same rule to generate and score. Corrected in Week 8.1.
+
+### Documented
+- **Policy change:** Escalate = "urgent human review", NOT "dispatch officers". Decision-support, not enforcement.
+- **Over-escalation limitation:** Qwen-1.5B recommends dispatch on 6 of 23 review-tier scenarios. Documented, not fixed.
+
+---
+
 ## [v0.9.5-week7-7-polish] — 2026-10-22
 
 Week 7.7 — Portfolio polish (Session 1).

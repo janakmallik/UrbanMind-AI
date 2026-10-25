@@ -94,7 +94,7 @@ Viola, F., Green, T., Back, T., Natsev, P., Suleyman, M., & Zisserman, A. (2017)
 *The Kinetics Human Action Video Dataset*.
 arXiv: https://arxiv.org/abs/1705.06950
 
-## Whisper
+### Whisper
 
 Radford, A., Kim, J. W., Xu, T., Brockman, G., McLeavey, C., & Sutskever, I. (2023).
 *Robust Speech Recognition via Large-Scale Weak Supervision*.
@@ -103,6 +103,16 @@ https://arxiv.org/abs/2212.04356
 
 Used in Week 7.6b as `openai/whisper-tiny` via HuggingFace `transformers`
 for emergency-phrase keyword detection.
+
+### Qwen 2.5
+
+Qwen Team. (2024). *Qwen2.5 Technical Report.* arXiv preprint
+arXiv:2412.15115.
+https://arxiv.org/abs/2412.15115
+
+Used in Week 8 as `Qwen/Qwen2.5-1.5B-Instruct` (4-bit NF4) via
+HuggingFace `transformers` for incident report generation.
+Quantized with `bitsandbytes`.
 
 ## Libraries
 

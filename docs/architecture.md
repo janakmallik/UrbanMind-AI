@@ -8,10 +8,11 @@ it is heading.
 ## The shape of the system
 
 UrbanMind-AI is **one repo, seven independent modality pipelines, one
-shared contract**. Each modality is a self-contained week of work with
-the same deliverables — a loader, a trainer, a model card, a dataset
-card, a tag. The pipelines do not depend on each other at runtime.
-They share *conventions*, not *code*.
+report generation layer, one multi-view fusion experiment**. Each
+modality is a self-contained week of work with the same deliverables —
+a loader, a trainer, a model card, a dataset card, a tag. The pipelines
+do not depend on each other at runtime; they share **conventions**, not
+code.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -40,13 +41,32 @@ They share *conventions*, not *code*.
 │                       model card + tag                      │
 └─────────────────────────────────────────────────────────────┘
                           │
+          ┌───────────────┼───────────────┐
+          ▼               ▼               ▼
+┌──────────────────┐ ┌─────────────┐ ┌─────────────────┐
+│ WEEK 8           │ │ WEEK 9a     │ │ FUTURE (Week 11)│
+│ Report generation│ │ Multi-view  │ │ Cross-modal     │
+│ Qwen consumes    │ │ fusion on   │ │ fusion on paired│
+│ 7 modality       │ │ BDD100K     │ │ data (MAVAD)    │
+│ outputs → field  │ │ (3 vision   │ │ audio + video   │
+│ report           │ │ models → 1  │ │                 │
+│                  │ │ classifier) │ │                 │
+│ ✅ Shipped       │ │ ✅ Shipped  │ │ ⏳ Planned      │
+└──────────────────┘ └─────────────┘ └─────────────────┘
+                          │
                           ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  FUTURE: MULTIMODAL FUSION (Week 9, planned)                │
-│  Cross-attention over aligned video + audio + text + tabular│
-│  Requires a paired dataset, not yet collected.              │
+│  FUTURE (Weeks 10–12)                                       │
+│  Uncertainty + calibration → Generative models → MLOps      │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+**Two distinct fusion approaches, both shipped:**
+
+- **Output-level fusion** (Week 8): 7 modality outputs → Qwen report generator → field report
+- **Feature-level multi-view fusion** (Week 9a): 3 vision models → 1 fused scene classifier
+
+**Not yet shipped:** cross-modal fusion (requires paired audio+video data — MAVAD is the candidate).
 
 ---
 
@@ -65,6 +85,15 @@ Each row below is *one week* of work with the same deliverables.
 | Video | HMDB-51 | R(2+1)D-18 (Kinetics) | 73.11% acc | `v0.9.1-week7-r2plus1d` |
 | Video anomaly | UCF-Crime | R(2+1)D-18 (staged) | F1 0.4972 | `v0.9.2-week7-5-ucf-crime` |
 | Audio | UrbanSound8K | 1D-CNN (10-fold) | 0.6779 ± 0.0497 acc | `v0.9.3-week7-6-audio` |
+
+## The shipped integration layers
+
+| Layer | Approach | Result | Tag |
+|---|---|---|---|
+| Report generation | Qwen2.5-1.5B consumes 7 modality outputs → field report | Qwen 0.890–0.902 vs template 0.626 | `v0.9.8-week8-qwen` |
+| Multi-view fusion | ResNet + SegFormer + YOLO features → LightGBM scene classifier | 0.6910 F1 vs ResNet 0.6986 (CI includes 0); residential recall 0.41→0.67 | `v0.9.9-week9-multiview-fusion` |
+
+**The report generator** is output-level fusion (evidence aggregation + LLM narrative). **The multi-view fusion** is feature-level fusion of same-modality features. Neither is cross-modal.
 
 ---
 
@@ -102,9 +131,12 @@ is the point.
 | Per-class breakdowns | all model cards |
 | Calibration (ECE) | UCF-Crime card |
 | Honest "Known Limitations" section | every model card |
+| Bootstrap confidence intervals | Week 9a fusion evaluation |
+| Contamination filtering before reuse | Week 9a fusion (SegFormer train ∩ ResNet test) |
+| Split reconstruction verification | Week 9a (reproduced 0.7800/0.6984 before proceeding) |
 
 These conventions are **not enforced by a shared library** — they are
-enforced by *discipline*. A new modality added in Week 8 would follow
+enforced by *discipline*. A new modality added tomorrow would follow
 them by reading any one of the seven existing trainers as a template.
 
 ---
@@ -113,19 +145,29 @@ them by reading any one of the seven existing trainers as a template.
 
 To be explicit, because the "multi-modality" label can overclaim:
 
-- **Not a single fused model.** Each modality predicts a different target.
-  "Multi-modality" describes *breadth of tasks*, not *one fused pipeline*.
-- **Not a real-time system.** Every model is trained offline; inference is
-  per-clip, batch-style.
+- **Not a single end-to-end fused model.** Each modality predicts a
+  different target. Week 8 fuses at the output layer (report
+  generation); Week 9a fuses at the feature layer (multi-view). Neither
+  is cross-modal fusion of audio + video + text simultaneously.
+- **Not cross-modal multimodal fusion.** Multi-view fusion (Week 9a) is
+  same-modality: three vision models process the same images. Cross-modal
+  fusion (image + audio, image + text, video + audio) requires paired
+  data not available in the current datasets. Week 11 attempts this via
+  MAVAD.
+- **Not a real-time system.** Every model is trained offline; inference
+  is per-clip, batch-style.
 - **Not deployed as a service.** There is no FastAPI, no Docker, no
   streaming ingester. Week 12 covers deployment patterns.
 - **Not trained on urban deployment data.** Every dataset is a public
   benchmark. Real urban audio, video, and 311 data would differ in ways
   the model cards document as limitations.
-
-The *fusion* stage (Week 9) is the point at which this becomes a single
-pipeline rather than seven parallel ones. Until then, "multi-modality"
-means "seven independent capabilities, shared conventions."
+- **Not a claim that fusion improves accuracy.** Week 9a multi-view
+  fusion does not beat the original ResNet on overall macro-F1 (0.6910
+  vs 0.6986, bootstrap CI includes zero). The residential-recall
+  improvement (0.41 → 0.67) is a class trade-off, not a general win.
+- **Not a claim that cross-modal fusion is achieved.** The 311 tabular +
+  text fusion was attempted (Week 9b) and rejected — the "text"
+  descriptor is a categorical lookup, not linguistic signal.
 
 ---
 
@@ -133,19 +175,22 @@ means "seven independent capabilities, shared conventions."
 
 | Planned | Week | Status |
 |---|---|---|
-| LLMs (LoRA + RAG) | 8 | Next |
-| Multimodal fusion (cross-attention) | 9 | Planned |
-| Uncertainty + calibration (conformal) | 10 | Planned |
-| Generative models (VAE / diffusion) | 11 | Planned |
-| MLOps + deployment | 12 | Planned |
+| **Uncertainty + calibration** (conformal, ECE) | 10 | **Next** |
+| **Cross-modal fusion** (audio + video on paired data) | 11 | Planned — MAVAD candidate |
+| **Generative models** (VAE / diffusion) | 12 | Planned |
+| **MLOps + deployment** (FastAPI, Docker, CI/CD) | 13 | Planned |
 
 Deferred to future scope:
 
 - **Speech keyword detection (originally Week 7.6b).** Needs a labeled
   audio corpus; design doc preserved at
   `docs/future_work/speech_keywords_design.md`.
+- **NYC 311 tabular + text fusion (Week 9b).** Attempted; rejected.
+  Descriptor is a categorical lookup — TF-IDF and one-hot encoding both
+  score 0.802–0.804 F1. Not linguistic signal. See `docs/experiments.md`
+  for the audit.
 - **Multilingual emergency phrases.** English-only taxonomy for now.
-- **Live streaming ingester.** Belongs in Week 12 if at all.
+- **Live streaming ingester.** Belongs in Week 13 if at all.
 
 ---
 
@@ -163,5 +208,6 @@ If you're new to the project:
 5. **Read one trainer end-to-end** — e.g.,
    `scripts/train_audio_events.py`. Every other trainer follows the
    same shape.
-
----
+6. **For the fusion work** — read `docs/model_cards/bdd100k_multiview_fusion_v1.md`
+   for the Week 9a negative result, and `docs/week8_1_policy.md` for
+   the report generator's safety policy.
