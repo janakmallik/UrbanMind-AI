@@ -1055,3 +1055,160 @@ scene classification (city / highway / residential) on BDD100K.
 - Tag: `v0.9.9-week9-multiview-fusion`
 
 ---
+
+## 2026-10-27 — Week 9c-audio: Urbansas offscreen-vehicle audio classifier
+
+**Hypothesis:** A from-scratch 1D-CNN on 128-mel log-spectrograms can
+detect `offscreen` vehicle events in 10-second urban audio clips,
+generalizing across Madrid locations (MAVD) and failing on European
+cities (TAU). This is the audio-only half of the Week 9c cross-modal
+fusion experiment.
+
+**Setup:**
+
+- **Dataset:** Urbansas, 1,080 clips (540 MAVD + 540 TAU).
+  MAVD training, TAU held out.
+- **Target:** `has_offscreen = "offscreen" in audio_annotations[filename]`.
+  MAVD positive rate 25.6%; TAU positive rate 15.0%.
+- **Protocol:** 5-fold leave-one-location-out on MAVD. Final model
+  retrained on all MAVD, evaluated once on TAU at threshold 0.5
+  (fixed before TAU evaluation). No tuning on TAU.
+- **Model:** 4-block 1D-CNN, ~348K params, same architecture as
+  Week 7.6 `AudioCNN`.
+- **Preprocessing:** 48 kHz mono → 128-mel log-spectrogram
+  (n_fft=2048, hop=2048, n_mels=128, fmin=20, fmax=24000) →
+  per-sample normalize. Cached at `data/urbansas_mels/mels.npy`.
+- **Training:** AdamW lr=1e-3, wd=1e-4, cosine over 15 epochs,
+  batch 16, class-weighted CE (`pos_weight = n_neg/n_pos` per fold).
+  No augmentation.
+- **Seeds:** 42 + fold_idx (per fold), 142 (final).
+
+**Result — MAVD CV:**
+
+| Fold | Location | F1 | Precision | Recall | Positives |
+|---:|---|---:|---:|---:|---:|
+| 1 | `acevedo0103` | 0.4138 | 0.3273 | 0.5625 | 32 |
+| 2 | `magallanes0308` | 0.2154 | 0.4118 | 0.1458 | 48 |
+| 3 | `rivera0922` | 0.5000 | 0.5000 | 0.5000 | 2 |
+| 4 | `rivera0923` | 0.4483 | 0.4333 | 0.4643 | 28 |
+| 5 | `templete0103` | 0.3797 | 0.2941 | 0.5357 | 28 |
+
+**Mean F1 (unweighted):** 0.3914 ± 0.0966
+**Pooled OOF:** F1 0.3686, P 0.3484, R 0.3913, ROC-AUC 0.6237, PR-AUC 0.3296
+
+**Per-location ROC-AUC is bimodal:**
+
+| Location | ROC-AUC |
+|---|---:|
+| `acevedo0103` | 0.481 |
+| `magallanes0308` | 0.703 |
+| `rivera0922` | 0.500 (n=2 pos, noise) |
+| `rivera0923` | 0.687 |
+| `templete0103` | 0.507 |
+
+**Two locations transfer; two are at chance.** The cause is not
+identified. Two hypotheses were tested and refuted:
+
+1. *Class composition.* The "both" subclass fraction is 12-20%
+   across the four meaningful folds with no correlation to ROC-AUC.
+   `rivera0923` has the highest "both" fraction (15%) and scores
+   0.687. **Refuted.**
+2. *Night vs. day.* Only `rivera0922` has night clips, and
+   `rivera0922` is not one of the meaningful folds. All four
+   meaningful folds are 100% daytime. **Refuted.**
+
+Working hypothesis is acoustic domain shift between Madrid locations
+(microphone geometry, street reflections, background noise). Untested
+in this experiment.
+
+**Result — per-subclass ROC-AUC (vs `only_visible` + `empty` negatives):**
+
+| Positive subclass | n | ROC-AUC |
+|---|---:|---:|
+| `only_offscreen` | 66 | 0.660 |
+| `both` (offscreen + visible) | 72 | 0.590 |
+
+**Gap of 0.070** in the predicted direction, but 0.660 for the
+"easiest" subgroup is still weak — the model does not confidently
+detect even pure offscreen events.
+
+**Result — TAU external:**
+
+| Metric | Value |
+|---|---:|
+| ROC-AUC | 0.5587 |
+| PR-AUC | 0.2073 |
+| **F1 at threshold 0.5** | **0.0000** |
+| Accuracy | 0.8444 |
+
+**The model predicted no positive TAU clips at threshold 0.5.**
+0.8444 accuracy = majority-class rate (459 negatives / 540).
+
+Probability collapse on TAU:
+
+| Statistic | Value |
+|---|---:|
+| Mean prob (negatives) | 0.0098 |
+| Mean prob (positives) | 0.0202 |
+| Median prob (all) | 0.000252 |
+
+**Absolute probabilities are near-zero for both classes**, so this
+is not a threshold problem — the ranking itself is near chance
+(ROC-AUC 0.5587).
+
+**Key findings:**
+
+1. **Audio-only baseline is honest but weak.** Pooled MAVD ROC-AUC
+   of 0.6237 is 1.29× the random PR-AUC baseline. The model learned
+   *some* ranking signal but no useful classifier.
+
+2. **Per-location transfer is bimodal and unexplained.** `magallanes0308`
+   (0.703) and `rivera0923` (0.687) transfer; `acevedo0103` (0.481)
+   and `templete0103` (0.507) do not. Two plausible explanations
+   (class composition, day/night) were tested and refuted. The
+   remaining hypothesis (per-location acoustic domain shift) is
+   untested.
+
+3. **The "only_offscreen" vs "both" gap is real but small.** 0.660
+   vs 0.590 — 0.070 gap. Suggests the model is partly learning
+   pure-offscreen signatures, but 0.660 is far from confident.
+
+4. **TAU fails.** 0.000 F1 at threshold 0.5, ROC-AUC 0.5587.
+   Genuine cross-dataset domain shift. Causes not verified:
+   could be domain shift, class-prior shift (MAVD 25.6% → TAU 15.0%),
+   or underfit + shift. Documented, not resolved.
+
+5. **This is the audio-only half of a fusion experiment.** Its
+   purpose was not to be a strong classifier but to be a fair
+   baseline that fusion must beat. It is a fair baseline.
+
+**Limitations:**
+
+- From-scratch, 540 training clips. Pretrained audio backbones
+  (AST, PaSST, BEATs) are future work.
+- No augmentation (SpecAugment used in Week 7.6 was not applied).
+- Bimodal location transfer. `rivera0922` (2 positives) contaminates
+  any pooled F1 estimate.
+- TAU domain shift. Not fixed.
+- Per-location analysis is exploratory; the fold-level metrics were
+  chosen first. No correction for multiple comparisons.
+
+**Deliverables:**
+
+- Model card: `docs/model_cards/urbansas_audio_cnn_v1.md`
+- Dataset card: `docs/dataset_cards/urbansas.md`
+- Training script: `scripts/train_urbansas_audio.py`
+- Diagnostic script: `scripts/diagnose_urbansas_audio.py`
+- Precompute cache: `scripts/precompute_urbansas_mels.py`
+- Label semantics check: `scripts/check_urbansas_labels.py`
+- Raw predictions: `data/urbansas_results/audio_only_oof.csv`,
+  `audio_only_tau_external.csv` (gitignored)
+- Checkpoint: `data/urbansas_results/audio_only_final.pt` (gitignored)
+- MLflow: `urbanintel-week9b-urbansas`, FINISHED run
+  `b4ce38be8ccc4993b7d5480678e8e529`
+
+**Next:** video-only baseline using the same 5 LOLA folds, same
+target definition, comparable metrics, TAU external test. Then
+audio+video fusion comparison. TAU remains untouched for selection.
+
+---

@@ -52,6 +52,7 @@ dependencies = [
     "soundfile>=0.14.0",
     "torchcodec>=0.17.0",
     "bitsandbytes>=0.46.1",
+    "av>=18.1.0",
 ]
 
 [project.optional-dependencies]

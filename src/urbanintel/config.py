@@ -43,3 +43,29 @@ def dataset_path(name: str, *parts: str) -> Path:
         -> <data_root>/nyc311/nyc311_sample.csv
     """
     return get_data_root().joinpath(name, *parts)
+
+
+def mavad_root() -> Path:
+    """Return MAVAD root directory.
+
+    Resolution order:
+    1. MAVAD_DIR environment variable, if set.
+    2. <URBANINTEL_DATA_ROOT>/mavad (falls back to <repo>/data/raw/mavad).
+    """
+    env = os.environ.get("MAVAD_DIR")
+    if env:
+        return Path(env).expanduser().resolve()
+    return dataset_path("mavad")
+
+
+def urbansas_root() -> Path:
+    """Return Urbansas root directory.
+
+    Resolution order:
+    1. URBANSAS_DIR environment variable, if set.
+    2. <URBANINTEL_DATA_ROOT>/urbansas (falls back to <repo>/data/raw/urbansas).
+    """
+    env = os.environ.get("URBANSAS_DIR")
+    if env:
+        return Path(env).expanduser().resolve()
+    return dataset_path("urbansas")
