@@ -1204,11 +1204,235 @@ is not a threshold problem — the ranking itself is near chance
 - Raw predictions: `data/urbansas_results/audio_only_oof.csv`,
   `audio_only_tau_external.csv` (gitignored)
 - Checkpoint: `data/urbansas_results/audio_only_final.pt` (gitignored)
-- MLflow: `urbanintel-week9b-urbansas`, FINISHED run
-  `b4ce38be8ccc4993b7d5480678e8e529`
 
 **Next:** video-only baseline using the same 5 LOLA folds, same
 target definition, comparable metrics, TAU external test. Then
 audio+video fusion comparison. TAU remains untouched for selection.
 
 ---
+
+## 2026-10-27 — Week 9c-video: Urbansas offscreen-vehicle video classifier
+
+**Hypothesis:** A Kinetics-400 pretrained R(2+1)D-18 can detect `offscreen`
+vehicle events in 10-second urban video clips. The hypothesis is
+**theoretically doubtful** — video cannot see offscreen vehicles — but a
+pretrained visual backbone may pick up scene-context correlates that
+correlate with the offscreen annotation policy. Measured, not assumed.
+
+**Setup:**
+
+- **Dataset**: Urbansas, 540 MAVD clips (training), 540 TAU clips (external).
+- **Target**: `has_offscreen = "offscreen" in audio_annotations[filename]`.
+  MAVD positive rate 25.6%, TAU 15.0%.
+- **Protocol**: 5-fold leave-one-location-out on MAVD. Final model retrained
+  on all MAVD, evaluated once on TAU at threshold 0.5.
+- **Model**: R(2+1)D-18 (Kinetics-400), 31.3M params, head replaced with
+  Linear(512, 2).
+- **Input**: 16 uniformly-sampled frames at 112×112, Kinetics normalization.
+  Frame cache precomputed to memmap (2.6 GB) for 6× training speedup.
+- **Training**: AdamW, differential LR (backbone 0.3× head), cosine over 15
+  epochs, batch 4, class-weighted CE with per-fold `n_neg/n_pos`.
+- **Augmentation**: random crop pad=8, hflip 50%.
+
+**Result:**
+
+| Fold | Location | F1 | n_pos |
+|---|---:|---:|---:|
+| 1 | acevedo0103 | 0.5067 | 32 |
+| 2 | magallanes0308 | 0.4466 | 48 |
+| 3 | rivera0922 | 0.0000 | 2 (noise) |
+| 4 | rivera0923 | 0.3333 | 28 |
+| 5 | templete0103 | 0.5846 | 28 |
+
+Mean F1: 0.3742 ± 0.2043
+Pooled OOF: F1 0.4643, P 0.358, R 0.659, ROC-AUC 0.6130, PR-AUC 0.3063.
+
+**TAU external**: F1 0.2362, P 0.326, R 0.185, ROC-AUC 0.6343.
+
+**Key findings:**
+
+1. **Video alone achieves F1 0.4643 on MAVD — higher than audio-only's
+   0.3686.** But this is not because video "detects offscreen vehicles."
+   It is because the video model learns scene-level correlations with the
+   annotation policy. On `only_visible` clips (visible vehicle, no offscreen
+   annotation), video's mean p is 0.80 — confident false positive — while
+   audio correctly predicts near zero (mean p 0.08). On `empty` clips (no
+   vehicles), video's mean p is 0.73 — also confident false positive. The
+   model has learned "empty road → predict offscreen likely" as a shortcut.
+
+2. **Video transfers to TAU much better than audio.** ROC-AUC 0.6343 vs
+   audio-only 0.5587. Kinetics-400 pretraining provides a general visual
+   representation that survives the Madrid → European cities shift.
+
+3. **Per-location ROC-AUC is bimodal but at different locations than audio.**
+   Video: 0.641 on `acevedo0103`, 0.501 on `magallanes0308`, 0.650 on
+   `rivera0923`, 0.721 on `templete0103`. Audio's pattern was 0.481 /
+   0.703 / 0.687 / 0.507. **The modalities are at chance on different
+   locations** — this is the strongest evidence for complementarity.
+
+4. **Per-subclass AUC is also complementary.** Video 0.746 on
+   `only_offscreen`, 0.491 on `both`. Audio 0.660 / 0.590. Opposite pattern.
+
+**Limitations:**
+
+- The video model cannot detect offscreen vehicles. Its ROC-AUC reflects
+  scene-context correlation, not detection.
+- 55% of high-confidence false positives are on `only_visible` clips. The
+  model has learned "visible vehicle → predict offscreen."
+- `rivera0922` (2 positives) is noise.
+- From-scratch on 540 clips with 31M pretrained parameters — overfitting
+  to MAVD-specific visual patterns is likely.
+- Per-location bimodality is unexplained.
+
+**Deliverables:**
+
+- Model card: `docs/model_cards/urbansas_video_cnn_v1.md`
+- Training script: `scripts/train_urbansas_video.py`
+- Precompute cache: `scripts/precompute_urbansas_video_frames.py`
+- Raw OOF predictions: `data/urbansas_results/urbansas_video_oof.csv`
+- TAU predictions: `data/urbansas_results/urbansas_video_tau_external.csv`
+- MLflow: `urbanintel-week9b-urbansas`
+
+**Next:** audio-video late fusion, using these two baselines.
+
+---
+
+## 2026-10-27 — Week 9c-fusion: Urbansas audio-video late fusion
+
+**Hypothesis:** Combining audio and video at the probability level improves
+over either single-modality baseline, and may transfer better to TAU. Given
+that both baselines have ROC-AUC ~0.61 but fail on different locations and
+different subclasses (see 9c-audio and 9c-video entries), the modalities may
+provide complementary signals.
+
+**Setup:**
+
+- **Inputs**: OOF probabilities from the two baselines
+  (`audio_only_oof.csv`, `urbansas_video_oof.csv`, aligned on `filename`,
+  both 540 rows, `y_true` matches).
+- **Protocol**: 5-fold leave-one-location-out on MAVD. For each held-out
+  location: fit fusion head on the 4 non-held-out locations' OOF
+  probabilities, evaluate on the held-out location. TAU external: fit
+  fusion head on all 540 MAVD OOF probabilities, apply to TAU OOF probs.
+- **Threshold**: fixed at 0.5. No tuning on MAVD test or TAU.
+- **Six models**: `audio` (baseline), `video` (baseline), `mean`,
+  `max`, `logistic`, `logistic_interaction`. Logistic heads use
+  `LogisticRegression(C=1.0, solver="lbfgs", class_weight="balanced")`.
+  Without class weighting, both logistic variants collapsed to F1 ≈ 0.09;
+  the unweighted results are preserved as `fusion_results_unweighted.json`
+  for the pre-fix record.
+- **Bootstrap CIs**: 1000 paired resamples, at clip level (540 units) and
+  location level (5 units).
+
+**Result — MAVD pooled OOF:**
+
+| Model | F1@0.5 | P | R | ROC-AUC |
+|---|---:|---:|---:|---:|
+| audio | 0.3686 | 0.348 | 0.391 | 0.6237 |
+| video | 0.4643 | 0.358 | 0.659 | 0.6130 |
+| mean | 0.4167 | 0.400 | 0.435 | **0.6704** |
+| max | **0.4713** | 0.333 | **0.804** | 0.6176 |
+| logistic (weighted) | 0.4480 | 0.326 | 0.717 | 0.6315 |
+| logistic+I (weighted) | 0.4510 | 0.329 | 0.717 | 0.6263 |
+
+**Result — TAU external:**
+
+| Model | F1 | P | R |
+|---|---:|---:|---:|
+| audio | 0.0000 | 0.000 | 0.000 |
+| video | **0.2362** | 0.326 | 0.185 |
+| mean | 0.0000 | 0.000 | 0.000 |
+| max | **0.2308** | 0.306 | 0.185 |
+| logistic (weighted) | 0.0230 | 0.167 | 0.012 |
+| logistic+I (weighted) | 0.0230 | 0.167 | 0.012 |
+
+**Result — bootstrap CI (weighted logistic vs audio):**
+
+- Clip-level: mean diff +0.0800, 95% CI [+0.0158, +0.1444], P ≈ 0.994
+- Location-level: mean diff +0.0770, 95% CI [−0.0258, +0.1653], P ≈ 0.934
+
+**Result — per-subclass F1:**
+
+| Model | only_offscreen (66) | both (72) |
+|---|---:|---:|
+| audio | 0.5957 | 0.5306 |
+| video | 0.9524 | 0.6019 |
+| max | **0.9767** | **0.8000** |
+| logistic | 0.9524 | 0.7027 |
+
+(`only_visible` and `empty` subclasses have zero positive labels — F1 is
+trivially 0 for all models, no information gained. Reported as 0 in the
+model card with a note.)
+
+**Key findings:**
+
+1. **Zero-parameter max fusion is the best pooled MAVD F1 (0.4713) and best
+   per-fold stability (mean 0.4493 ± 0.0663).** Its MAVD improvement over
+   video-only is marginal (+0.007) — statistically indistinguishable — but
+   it is the only fusion model that preserves TAU transfer (0.2308 vs
+   video-only 0.2362).
+
+2. **Weighted logistic fusion substantially improves MAVD F1 over audio
+   (+0.08) with clip-level CI excluding zero, but location-level CI
+   includes zero.** The two views disagree because with 5 locations, the
+   location-level CI is the more honest estimate for generalization.
+
+3. **Logistic fusion collapses on TAU (0.0230).** The in-domain MAVD gain
+   does not transfer. Any production claim would need cross-domain
+   evaluation.
+
+4. **The subclass breakdown supports the complementary-signal hypothesis.**
+   `only_offscreen` F1 goes from 0.5957 (audio) to 0.9524 (logistic) to
+   0.9767 (max). `both` goes from 0.5306 to 0.7027 to 0.8000. Consistent
+   with audio providing signal where video fails and vice versa. Not
+   causal — the fusion head's training features come from base models
+   that have seen the held-out location in *other* folds (see limitations).
+
+5. **Mean fusion has the highest ROC-AUC (0.6704) but not the highest F1.**
+   Threshold tuning on training data is a natural follow-up; not done here.
+
+**Limitations:**
+
+- **Leakage concern for logistic fusion heads.** The fusion head's training
+  probabilities for fold `L` come from base models that were trained on
+  location `L`'s data in other folds. This is a subtle leakage channel not
+  eliminated by the 5-fold LOLA structure. A fully independent evaluation
+  requires nested cross-validation (retraining base models 4× per outer
+  fold); not done. **The logistic fusion results should be read with this
+  caveat.** Zero-parameter `mean` and `max` are unaffected — they fit no
+  parameters.
+- **Max fusion's MAVD improvement over video-only is marginal** (+0.007
+  pooled F1). Bootstrap CI not computed for this pair, but the point
+  estimate is close to zero.
+- **No threshold tuning on TAU.** Fixed at 0.5 before evaluation.
+- **Two weak baselines, one weak external transfer.** Fusion helps MAVD
+  in-domain but does not produce a generalizing classifier. The best TAU
+  transfer (max 0.2308) roughly matches video-only, not exceeds it.
+- **`rivera0922` fold has 2 positives.** Per-fold F1 is noise.
+
+**Deliverables:**
+
+- Model card: `docs/model_cards/urbansas_fusion_v1.md`
+- Training script: `scripts/train_urbansas_fusion.py`
+- Raw predictions:
+  - `data/urbansas_results/fusion_oof.csv` (weighted logistic)
+  - `data/urbansas_results/fusion_tau_external.csv`
+  - `data/urbansas_results/fusion_results.json`
+  - `data/urbansas_results/fusion_results_unweighted.json` (pre-fix)
+- MLflow: `urbanintel-week9b-urbansas`
+
+**Week 9c conclusion:** Audio-only and video-only baselines both achieve
+ROC-AUC ~0.61 on MAVD but fail on different locations and different
+subclasses. Late fusion on the two probabilities:
+- Substantially improves in-domain MAVD F1 (weighted logistic +0.08, max
+  fusion best pooled F1)
+- **Does not transfer to TAU** (best transfer is max fusion at 0.2308,
+  roughly matching video-only)
+- Provides suggestive evidence for complementary signals on the two positive
+  subclasses, but does not prove causal complementarity or cross-domain
+  generalization.
+
+**Future work:** feature-level fusion (frozen backbone embeddings +
+concatenation + MLP head), nested cross-validation to resolve the leakage
+concern, threshold tuning on training data for mean fusion, TAU-specific
+calibration.

@@ -325,10 +325,43 @@ class UrbansasAudioDataset(Dataset):
         return torch.from_numpy(mel).unsqueeze(0), label
 
 
+def _decode_frames_decord(video_path: str | Path, n_frames: int = 16) -> np.ndarray | None:
+    """Decode n_frames uniformly via decord. Returns (T, H, W, 3) uint8 RGB or None.
+
+    Falls back to cv2-based sample_video_frames if decord fails (e.g., codec
+    unsupported). decord is ~5-10x faster than cv2 seek-per-frame.
+    """
+    try:
+        import decord
+    except ImportError:
+        return sample_video_frames(video_path, n_frames)
+
+    p = Path(video_path)
+    if not p.is_file():
+        return None
+
+    try:
+        vr = decord.VideoReader(str(p), num_threads=1)
+        total = len(vr)
+        if total == 0:
+            return None
+        indices = np.linspace(0, total - 1, n_frames).astype(int).tolist()
+        frames = vr.get_batch(indices).asnumpy()
+        return frames.astype(np.uint8)
+    except Exception:
+        # decord failed — fall back to cv2
+        try:
+            return sample_video_frames(video_path, n_frames)
+        except Exception:
+            return None
+
+
 class UrbansasVideoDataset(Dataset):
     """Video-only dataset for the offscreen detection task.
 
-    Returns (16, 3, 112, 112) float32 frames + label.
+    Returns (3, 16, 112, 112) float32 frames + label.
+    Train: random crop (pad=8) + horizontal flip 50%.
+    Eval: deterministic center crop, no augmentation.
     """
 
     def __init__(self, df: pd.DataFrame, resolution: int = 112, is_train: bool = False):
@@ -339,26 +372,45 @@ class UrbansasVideoDataset(Dataset):
     def __len__(self) -> int:
         return len(self.df)
 
-    def __getitem__(self, idx: int):
+    def _process_frames(self, frames: np.ndarray) -> torch.Tensor:
+        """frames: (T, H, W, 3) uint8 -> (C, T, R, R) float32, Kinetics-normalized."""
         import cv2
 
-        row = self.df.iloc[idx]
-        frames = sample_video_frames(row["video_path"], NUM_VIDEO_FRAMES)
+        T, _, _, _ = frames.shape
+        R = self.resolution
 
-        # Resize to resolution
-        resized = []
-        for frame in frames:
-            r = cv2.resize(frame, (self.resolution, self.resolution))
-            resized.append(r)
-        frames_np = np.stack(resized, axis=0).astype(np.float32) / 255.0
+        resized = np.empty((T, R, R, 3), dtype=np.uint8)
+        for i in range(T):
+            resized[i] = cv2.resize(frames[i], (R, R), interpolation=cv2.INTER_AREA)
 
-        # Kinetics normalization
+        if self.is_train:
+            # Random crop (pad=8 then crop to R)
+            pad = 8
+            r2 = R + pad
+            padded = np.empty((T, r2, r2, 3), dtype=np.uint8)
+            for i in range(T):
+                padded[i] = cv2.resize(resized[i], (r2, r2), interpolation=cv2.INTER_AREA)
+            top = np.random.randint(0, pad + 1)
+            left = np.random.randint(0, pad + 1)
+            resized = padded[:, top : top + R, left : left + R]
+
+            # Random horizontal flip
+            if np.random.rand() < 0.5:
+                resized = np.ascontiguousarray(resized[:, :, ::-1, :])
+
+        frames_np = resized.astype(np.float32) / 255.0
+
         mean = np.array([0.43216, 0.394666, 0.37645], dtype=np.float32)
         std = np.array([0.22803, 0.22145, 0.216989], dtype=np.float32)
         frames_np = (frames_np - mean) / std
 
-        # (T, H, W, C) → (C, T, H, W)
-        frames_t = torch.from_numpy(frames_np).permute(3, 0, 1, 2).float()
+        # (T, H, W, C) -> (C, T, H, W)  [torchvision R(2+1)D-18 expects this]
+        return torch.from_numpy(frames_np).permute(3, 0, 1, 2).float()
+
+    def __getitem__(self, idx: int):
+        row = self.df.iloc[idx]
+        frames = sample_video_frames(row["video_path"], NUM_VIDEO_FRAMES)
+        frames_t = self._process_frames(frames)
         label = int(row["has_offscreen"])
         return frames_t, label
 
@@ -386,7 +438,9 @@ class UrbansasFusionDataset(Dataset):
         mel_t = torch.from_numpy(mel).unsqueeze(0)
 
         # Video
-        frames = sample_video_frames(row["video_path"], NUM_VIDEO_FRAMES)
+        frames = _decode_frames_decord(row["video_path"], NUM_VIDEO_FRAMES)
+        if frames is None:
+            raise RuntimeError(f"Could not decode video at index {idx}: {row['video_path']}")
         resized = []
         for frame in frames:
             r = cv2.resize(frame, (self.resolution, self.resolution))
@@ -431,3 +485,78 @@ class CachedUrbansasAudioDataset(Dataset):
         mel = (mel - mel.mean()) / (mel.std() + 1e-6)
         label = int(row["has_offscreen"])
         return torch.from_numpy(mel).unsqueeze(0), label
+
+
+class CachedUrbansasVideoDataset(Dataset):
+    """Video dataset backed by the precomputed frame cache.
+
+    Expects data/urbansas_video_frames/frames.npy and filenames.txt
+    (created by scripts/precompute_urbansas_video_frames.py).
+
+    Frames are stored pre-normalized (Kinetics mean/std applied).
+    Augmentation (random crop, hflip) is applied at load time.
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        cache_dir: Path | None = None,
+        resolution: int = 112,
+        is_train: bool = False,
+    ):
+        if cache_dir is None:
+            cache_dir = Path(__file__).resolve().parents[3] / "data" / "urbansas_video_frames"
+        self.df = df.reset_index(drop=True)
+        self.resolution = resolution
+        self.is_train = is_train
+        self._cache_dir = cache_dir
+        self._frames = None
+        self._stem_to_idx = None
+
+    def _ensure_loaded(self):
+        if self._frames is None:
+            self._frames = np.load(self._cache_dir / "frames.npy", mmap_mode="r")
+            with open(self._cache_dir / "filenames.txt") as f:
+                stems = f.read().strip().split("\n")
+            self._stem_to_idx = {s: i for i, s in enumerate(stems)}
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int):
+        import cv2
+
+        self._ensure_loaded()
+        row = self.df.iloc[idx]
+        stem = row["filename"]
+        if stem not in self._stem_to_idx:
+            raise KeyError(f"Clip {stem} not in video frame cache")
+        # (16, 112, 112, 3) float32, already Kinetics-normalized
+        frames = np.asarray(self._frames[self._stem_to_idx[stem]])
+
+        R = self.resolution
+        if R != frames.shape[1]:
+            # Resize if resolution differs
+            resized = np.empty((frames.shape[0], R, R, 3), dtype=np.float32)
+            for i in range(frames.shape[0]):
+                resized[i] = cv2.resize(frames[i], (R, R), interpolation=cv2.INTER_AREA)
+            frames = resized
+
+        if self.is_train:
+            # Random crop: pad=8, crop to R
+            pad = 8
+            r2 = R + pad
+            padded = np.empty((frames.shape[0], r2, r2, 3), dtype=np.float32)
+            for i in range(frames.shape[0]):
+                padded[i] = cv2.resize(frames[i], (r2, r2), interpolation=cv2.INTER_AREA)
+            top = np.random.randint(0, pad + 1)
+            left = np.random.randint(0, pad + 1)
+            frames = padded[:, top : top + R, left : left + R]
+
+            if np.random.rand() < 0.5:
+                frames = np.ascontiguousarray(frames[:, :, ::-1, :])
+
+        # (T, H, W, C) -> (C, T, H, W)
+        frames_t = torch.from_numpy(np.ascontiguousarray(frames)).permute(3, 0, 1, 2).float()
+        label = int(row["has_offscreen"])
+        return frames_t, label
