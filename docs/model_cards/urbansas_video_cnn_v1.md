@@ -38,8 +38,8 @@ inspection) revealed: **55% of the video model's high-confidence false
 positives are on `only_visible` clips** — clips that contain a visible
 vehicle but no offscreen annotation. On these clips, the video model
 confidently predicts positive (mean p ≈ 0.80) while audio correctly predicts
-negative (mean p ≈ 0.08). On `empty` clips (no vehicles at all), the video
-model also fires positive at p ≈ 0.73.
+negative (mean p ≈ 0.08). On `empty` clips, the video model also fires
+positive at p ≈ 0.73.
 
 **Interpretation:** the video model has learned a *scene-context prior*.
 "Empty road at a certain geometry" → predicts offscreen likely. "Visible
@@ -47,6 +47,35 @@ vehicle present" → predicts offscreen likely. This correlation exists in
 the annotation policy (roads → vehicles → some offscreen), but is not the
 task. The model is a weak scene-context classifier standing in for a task
 it cannot actually solve.
+
+**Two post-hoc corrections to this interpretation:**
+
+1. **The `empty` "false positives" are not clean.** A later audit
+   (2026-10-27, `docs/experiments.md` 10a) revealed that 57% of `empty` clips
+   carry `non_identifiable_vehicle_sound = 1` — the annotator heard a
+   vehicle-like sound but could not classify it. The video model firing
+   positive on these clips may be detecting real offscreen vehicle events that
+   the annotation pipeline could not label. **This is not confirmed** — we
+   did not verify the acoustic content of those clips — but it means "video
+   confidently wrong on empty clips" was an overstatement. Video may be
+   partly right; the labels are ambiguous.
+
+2. **The video model's TAU transfer may be substantially city-level.** A
+   city-only logistic regression on TAU achieves F1 0.2982 ± 0.0525
+   (5-fold stratified on 7 cities with ≥20 clips), while the video model on
+   TAU achieves F1 0.2362 (on all 540 clips). The two use different clip
+   sets; a strict comparison would evaluate the city baseline on the same
+   540 clips. But the direction is clear: a non-trivial fraction of the
+   video model's TAU signal is likely captured by city-level priors. The
+   video model's contribution *beyond* city identity is not established.
+
+**Combined honest statement:** the video model learns a scene-context prior
+that correlates with the offscreen annotation policy. Part of this correlation
+is city-level (TAU), part is scene-level (`only_visible`), and part may be
+ambiguous `-1` clips that were labelled as empty but carry vehicle-sound
+flags. None of these are direct offscreen-vehicle detection — the model cannot
+see what is offscreen — but the "55% wrong on `only_visible`" framing
+understates the ambiguity.
 
 ## Architecture
 
@@ -142,12 +171,23 @@ signatures.
 1. **The model cannot detect offscreen vehicles.** It cannot see them. The
    ROC-AUC above chance reflects scene-context correlation with the
    annotation policy. **This is the most important limitation.** Any claim
-   that this model "detects offscreen vehicles" is incorrect.
+   that this model "detects offscreen vehicles" is incorrect. Additionally,
+   a post-hoc audit found that the model's `empty`-clip predictions may
+   partly reflect real vehicle sounds the annotation pipeline could not
+   classify (57% of `-1` clips carry `non_identifiable_vehicle_sound = 1`),
+   and its TAU signal is not clearly beyond a trivial city-only classifier.
+   The scene-context signal, while real, is confounded by city priors and
+   label ambiguity.
 
 2. **55% of high-confidence false positives are `only_visible` clips.** The
    model has learned "visible vehicle → predict offscreen." On clips with
    visible vehicles but no offscreen annotation, it confidently predicts
-   positive (mean p 0.80) while audio correctly predicts negative.
+   positive (mean p 0.80) while audio correctly predicts negative. This is a
+   genuine false-positive mode — `only_visible` is a clean negative class
+   (357 clips, all confirmed visible-vehicle-only). The `empty` subclass
+   (45 clips in MAVD, 130 in full Urbansas) is separately ambiguous (see
+   limitation #1 above); false positives on `empty` should not be treated
+   the same as false positives on `only_visible`.
 
 3. **Per-location transfer is bimodal and unexplained.** 0.501 on
    `magallanes0308` vs 0.721 on `templete0103`. Cause not identified. Similar
@@ -172,6 +212,15 @@ signatures.
 8. **`only_visible` and `empty` subclass F1 is trivially 0.** Both subclasses
    have zero positive labels. F1 cannot distinguish false-positive behavior
    across models on these subclasses.
+
+9. **Post-hoc audit corrections (2026-10-27).** Two amendments made after the
+   original model card:
+   - The `empty` subclass is not a clean negative — 57% of `-1` clips carry
+     `non_identifiable_vehicle_sound = 1`.
+   - The TAU signal may be substantially city-level (city-only baseline F1
+     0.2982 vs video F1 0.2362, different clip sets).
+   See `docs/dataset_cards/urbansas.md` and the 10a experiments entry for
+   details.
 
 ## What this model demonstrates
 

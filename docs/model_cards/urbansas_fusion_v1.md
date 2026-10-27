@@ -220,7 +220,15 @@ collapse to near-zero predictions at threshold 0.5.
 6. **Subclass improvements support complementary-signal hypothesis but do
    not prove it.** `only_offscreen` F1 goes 0.5957 → 0.9524 (logistic) and
    `both` goes 0.5306 → 0.7027. Consistent with complementary signals; not
-   causal.
+   causal. **Post-hoc caveat:** the negative pool used in these subclass
+   diagnostics (`only_visible` + `empty`, 402 clips) contains ~32 ambiguous
+   clips — clips labelled `-1` where the annotator heard an
+   unclassified vehicle sound (`non_identifiable_vehicle_sound = 1`). The
+   `only_visible` subclass (357 clips) is a clean negative; the `empty`
+   subclass is ambiguous. **The complementarity pattern against
+   `only_visible` alone is clean and holds; the pooled negative-pool
+   comparison is partly contaminated.** See `docs/dataset_cards/urbansas.md`
+   for the audit.
 
 7. **No threshold tuning on TAU.** Threshold 0.5 fixed before evaluation.
    TAU is a held-out external test and was not used to select any fusion
@@ -228,6 +236,16 @@ collapse to near-zero predictions at threshold 0.5.
 
 8. **`rivera0922` fold is unreliable.** 2 positives; per-fold F1 of 0.5000
    is 1 of 2 true positives. Report as noise.
+
+9. **Post-hoc audit corrections (2026-10-27).** The `empty` subclass used in
+   per-subclass diagnostics is ambiguous (57% carry
+   `non_identifiable_vehicle_sound = 1`). The `only_visible` subclass is a
+   clean negative and the complementarity pattern against `only_visible`
+   alone survives. The pooled negative-pool comparison is partly
+   contaminated. Additionally, the video model's TAU transfer may be
+   substantially city-level (city-only baseline F1 0.2982 vs video F1
+   0.2362 on TAU, different clip sets). See `docs/experiments.md` 10a
+   entry for details.
 
 ## What this model demonstrates
 

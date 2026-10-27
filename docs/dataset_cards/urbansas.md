@@ -105,6 +105,53 @@ appear in test.
 absolute amplitude. This is the same trade-off as Week 7.6's
 UrbanSound8K preprocessing — documented there as a limitation.
 
+## Annotation semantics — the `-1` sentinel
+
+**Critical caveat discovered in post-hoc audit (2026-10-27):** The `-1` value in
+the `label` column is **not** a clean negative sentinel. It is a placeholder for
+clips where the annotator could not classify the audio content.
+
+Evidence from `audio_annotations.csv`:
+
+- 130 rows have `label = -1`, one per unique filename. **No clip has both `-1`
+  and another label** — `-1` is a whole-clip designation, not a gap-filler.
+- All `-1` rows have `start = -1, end = -1` — no valid time window.
+- **57% of `-1` clips (74/130) have `non_identifiable_vehicle_sound = 1`** —
+  meaning the annotator heard a vehicle-like sound but could not classify it
+  as `car`, `bus`, `motorbike`, `truck`, or `offscreen`.
+- The remaining 43% (56/130) have `non_identifiable_vehicle_sound = 0` — closer
+  to a genuine "nothing was heard" case, but not verified.
+
+**What this means for label interpretation:**
+
+- The `empty` subclass in our subclass grouping (`{label} == {-1}`) is **not a
+  confirmed negative**. It is a mix of:
+  - ~74 clips (57%) that likely contain vehicle events the pipeline could not
+    annotate
+  - ~56 clips (43%) that may or may not be truly empty
+- The negative pool used in the model card's per-subclass diagnostics
+  (`only_visible` + `empty` = 402 clips) contains ~32 ambiguous `-1`-with-sound
+  clips (74 × 57% in the negative pool... actually 74 total, so ~8% of the
+  negative pool is potentially mislabeled positive).
+
+**Consequence for Week 9c:**
+
+The fusion model card reports per-subclass AUCs against a negative pool that
+includes ambiguous clips. The `only_offscreen` and `both` subclass results
+(positive labels) are not affected by this ambiguity. The `only_visible`
+subclass (357 clips, all confirmed visible vehicles with no offscreen label)
+is a clean negative. But the `empty` subclass is ambiguous and should be
+excluded from any "clean negative" analysis in future work.
+
+**Recommendation for future experiments:** treat `empty` clips as an
+*ambiguous* category, not as confirmed negatives. Either exclude them from
+the negative pool entirely, or report per-subclass metrics with `empty`
+excluded to see how the numbers change. The `-1` sentinel needs to be
+validated against the Urbansas paper's annotation protocol; we have not done
+that validation.
+
+---
+
 ## Known limitations of the dataset
 
 1. **`offscreen` coexists with visible-vehicle labels.** 52% of MAVD

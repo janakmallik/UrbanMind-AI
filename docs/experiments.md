@@ -1436,3 +1436,109 @@ subclasses. Late fusion on the two probabilities:
 concatenation + MLP head), nested cross-validation to resolve the leakage
 concern, threshold tuning on training data for mean fusion, TAU-specific
 calibration.
+
+---
+
+## 2026-10-27 — Week 9c 10a: Label audit and scene-metadata baseline
+
+**Hypothesis:** The Week 9c fusion result depends on labels and evaluation
+protocol that we have not independently verified. Two specific concerns:
+(1) The `-1` annotation sentinel might not be a clean negative; (2) the video
+model's apparent TAU transfer might be largely explained by city-level priors.
+
+**Setup:**
+
+- **Audit 1 — `-1` sentinel semantics:** Inspected all 130 `-1` rows in
+  `audio_annotations.csv`. Cross-referenced with `non_identifiable_vehicle_sound`
+  column and per-clip label composition.
+- **Audit 2 — scene-metadata baseline:** Attempted a logistic regression on
+  observable metadata (`night` flag, `city`) to test whether video's signal is
+  largely metadata-driven. Built on MAVD and TAU separately.
+- **Audit 3 — same-set comparison:** None. The city-only baseline on TAU used
+  503 clips (7 cities ≥20 clips); the video model used 540 clips. **Not
+  apples-to-apples.**
+
+**Result — Audit 1 (`-1` sentinel):**
+
+| Property | Value |
+|---|---:|
+| `-1` rows | 130 |
+| Unique filenames | 130 (no clip has both `-1` and other labels) |
+| `non_identifiable_vehicle_sound = 1` on `-1` rows | **74 (57%)** |
+| `non_identifiable_vehicle_sound = 0` on `-1` rows | 56 (43%) |
+| `start = end = -1` on all `-1` rows | Yes |
+
+**Interpretation:** `-1` is not a clean negative. It is a placeholder for
+clips where the annotator could not classify the audio. 57% of `-1` clips
+contain vehicle-like sounds that were not classified. The `empty` subclass
+(130 clips) is ambiguous, not confirmed negative.
+
+**Result — Audit 2 (scene-metadata baseline):**
+
+MAVD:
+- 1 city (Montevideo), 5 locations. **City is constant on MAVD — no city
+  baseline possible.**
+- `night` flag: 30 clips at night (all in `rivera0922`), 510 at day. Only 2
+  positives are in the night clips. **Near-constant — no night baseline
+  possible on MAVD.**
+
+TAU:
+- 10 cities. 7 cities with ≥20 clips (503 clips total).
+- **City-only logistic regression (5-fold stratified): mean F1 = 0.2982 ± 0.0525**
+- Video-only TAU F1 (on all 540 clips): **0.2362**
+- **The city-only baseline on TAU outperforms the video model on TAU.**
+  Different clip sets, but the direction is clear.
+
+**Interpretation:** A non-trivial fraction of the video model's TAU signal is
+likely captured by city-level priors. The video model's contribution *beyond*
+city identity is not established. This does not mean the video model is useless
+— it means its TAU signal is not clearly beyond what a trivial city-classifier
+achieves.
+
+**Key findings:**
+
+1. **The `-1` sentinel is not a clean negative.** 57% of `empty` clips carry
+   `non_identifiable_vehicle_sound = 1`. The `empty` subclass is ambiguous.
+   All Week 9c per-subclass diagnostics that used `empty` as a negative should
+   be re-read with this caveat. The `only_visible` subclass (357 clips) is a
+   clean negative and the `only_offscreen` + `both` subclasses (138 positive
+   clips) are confirmed positives — the complementarity pattern between these
+   three clean groups is not affected.
+
+2. **The city-only baseline on TAU (F1 0.2982) beats the video model
+   (F1 0.2362).** Video's TAU transfer may be substantially city-prior-driven.
+   The two evaluated on different clip sets (503 vs 540); a strict comparison
+   would evaluate the city baseline on the same 540 clips. But the point
+   stands: video's TAU signal is not clearly beyond a trivial city classifier.
+
+3. **MAVD cannot support a metadata baseline.** City is constant (Montevideo);
+   `night` is near-constant. There is no observable metadata on MAVD that
+   varies enough to build a fair baseline. This is a limitation of the dataset,
+   not of the audit.
+
+**Limitations of the audit:**
+
+- The `-1` sentinel semantics were inferred from the annotation CSV. **They
+  have not been verified against the Urbansas paper or annotation protocol
+  documentation.** A reviewer with access to the original Urbansas release
+  notes could confirm or refute our interpretation.
+- The city baseline used 503 clips (7 cities ≥20 clips). The comparison to
+  video's 540-clip F1 is directional, not strict.
+- The `non_identifiable_vehicle_sound` column's semantics are also assumed —
+  we interpret it as "annotator heard a vehicle-like sound that could not be
+  classified," but it may mean something else in the original protocol.
+
+**Deliverables:**
+
+- Dataset card amendment: `docs/dataset_cards/urbansas.md` — new section
+  "Annotation semantics — the `-1` sentinel"
+- Video model card amendment: `docs/model_cards/urbansas_video_cnn_v1.md` —
+  re-cast "55% high-confidence false positives" with the city-baseline finding
+- Fusion model card amendment: `docs/model_cards/urbansas_fusion_v1.md` —
+  add the negative-pool-pollution caveat
+
+**Next:** Nested cross-validation for the weighted logistic fusion head.
+This is the remaining methodological concern from Week 9c: the +0.08 MAVD
+improvement is subject to an outer-fold leakage channel that requires
+retraining the base models per outer fold. Nested CV resolves it at ~20 hours
+of compute.
