@@ -149,11 +149,7 @@ To be explicit, because the "multi-modality" label can overclaim:
   different target. Week 8 fuses at the output layer (report
   generation); Week 9a fuses at the feature layer (multi-view). Neither
   is cross-modal fusion of audio + video + text simultaneously.
-- **Not cross-modal multimodal fusion.** Multi-view fusion (Week 9a) is
-  same-modality: three vision models process the same images. Cross-modal
-  fusion (image + audio, image + text, video + audio) requires paired
-  data not available in the current datasets. Week 11 attempts this via
-  MAVAD.
+- **Not comprehensive cross-modal fusion.** Week 9a (multi-view on BDD100K) is same-modality. Week 9b's attempts on 311 tabular+text and MAVAD were rejected (descriptor is categorical lookup; MAVAD's public release is video-only). Week 9c is the first genuine cross-modal experiment: late fusion of audio and video on the paired Urbansas dataset. The result is a documented marginal in-domain gain (best pooled F1 0.4713 with max fusion, vs 0.4643 video-only) with unresolved leakage caveats for the learned fusion heads, and no cross-city transfer beyond what video-only already achieves. Higher-capability fusion methods (feature-level, cross-attention) remain future work.
 - **Not a real-time system.** Every model is trained offline; inference
   is per-clip, batch-style.
 - **Not deployed as a service.** There is no FastAPI, no Docker, no
@@ -176,7 +172,7 @@ To be explicit, because the "multi-modality" label can overclaim:
 | Planned | Week | Status |
 |---|---|---|
 | **Uncertainty + calibration** (conformal, ECE) | 10 | **Next** |
-| **Cross-modal fusion** (audio + video on paired data) | 11 | Planned — MAVAD candidate |
+| Feature-level / cross-attention fusion on Urbansas | 9c-ext | Planned — builds on Week 9c late fusion |
 | **Generative models** (VAE / diffusion) | 12 | Planned |
 | **MLOps + deployment** (FastAPI, Docker, CI/CD) | 13 | Planned |
 

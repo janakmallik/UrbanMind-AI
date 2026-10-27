@@ -108,7 +108,7 @@ not calendar weeks — they are units of shippable work.
 | **8** | **Incident report generator (Qwen)** | **Qwen 0.890 ~ 0.902 vs template 0.626** | **`v0.9.8-week8-qwen`** |
 | **9a** | **Multi-view fusion (BDD100K)** | **Fusion 0.6910 vs ResNet 0.6986 (CI includes 0); residential recall 0.41→0.67** | **`v0.9.9-week9-multiview-fusion`** |
 | 9b | Cross-modal fusion (attempted) | 311 tabular+text rejected — descriptor is categorical lookup | documented |
-| 9c | Cross-modal fusion (deferred) | Requires paired data (e.g., MAVAD audio+video) | future work |
+| 9c | Cross-modal fusion (Urbansas audio+video) | Audio 0.3686 F1 / video 0.4643 F1 / max fusion 0.4713 F1; logistic +0.08 with leakage caveat; TAU transfer limited to video/max | `v0.9.10-week9c-urbansas` |
 | 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |
 | 11 | Generative models (VAE / diffusion) | Not started | — |
 | 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |

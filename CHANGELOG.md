@@ -5,6 +5,78 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
 
+## [v0.9.10-week9c-urbansas] — 2026-10-27
+
+Week 9c — Urbansas cross-modal audio-video fusion.
+
+### Added
+
+- **Audio baseline** (`08f5e24`): 1D-CNN on 128-mel log-spectrograms,
+  5-fold leave-one-location-out on MAVD. Pooled OOF ROC-AUC 0.6237, PR-AUC
+  0.3296, F1 0.3686 at threshold 0.5. Per-location ROC-AUC is bimodal
+  (0.48–0.70) for unidentified reasons. TAU external collapses to F1 0.0000.
+- **Video baseline** (`94833c6`): R(2+1)D-18 Kinetics-400 pretrained,
+  same folds. Pooled OOF F1 0.4643, ROC-AUC 0.6130, TAU external F1 0.2362.
+  Disagreement analysis reveals 55% of high-confidence false positives are
+  on `only_visible` clips — the model learns "visible vehicle → predict
+  offscreen" as a scene-context shortcut, not direct detection.
+- **Late fusion** (`94833c6`): six models tested — audio, video, mean, max,
+  logistic, logistic+interaction. Best pooled MAVD F1 is max fusion 0.4713
+  (+0.007 over video-only, marginal). Weighted logistic fusion improves
+  MAVD F1 over audio by +0.08 (clip-level CI excludes zero, location-level
+  CI includes zero). TAU transfer is preserved only by max fusion (0.2308)
+  and video-only (0.2362); logistic collapses to 0.0230.
+- **Documentation**:
+  - `docs/model_cards/urbansas_audio_cnn_v1.md`
+  - `docs/model_cards/urbansas_video_cnn_v1.md`
+  - `docs/model_cards/urbansas_fusion_v1.md`
+  - `docs/dataset_cards/urbansas.md`
+  - Three `docs/experiments.md` entries (9c-audio, 9c-video, 9c-fusion)
+- **Scripts**:
+  - `scripts/train_urbansas_audio.py`
+  - `scripts/train_urbansas_video.py`
+  - `scripts/train_urbansas_fusion.py`
+  - `scripts/precompute_urbansas_mels.py`
+  - `scripts/precompute_urbansas_video_frames.py`
+  - `scripts/diagnose_urbansas_audio.py`
+  - `scripts/audit_urbansas.py`
+  - `scripts/check_urbansas_labels.py`
+  - `scripts/inspect_urbansas.py`
+- **Data pipeline**: `src/urbanintel/data/urbansas.py` with loaders for
+  audio-only, video-only, cached variants, and augmentation.
+
+### Documented
+
+- **Negative result**: late fusion does not transfer to unseen cities. Best
+  TAU F1 across all fusion models is max fusion 0.2308, roughly matching
+  video-only 0.2362. No fusion model exceeds video-only on external test.
+- **Complementary-signal hypothesis**: audio and video are at chance on
+  *different* MAVD locations and *different* subclasses. Consistent with
+  complementary information; not causal.
+- **Leakage concern**: learned fusion heads' training probabilities come
+  from base models that saw the held-out location in other folds. A fully
+  independent evaluation requires nested cross-validation (~20 hours
+  compute); not done. Zero-parameter mean and max fusion are unaffected.
+- **Video cannot detect offscreen vehicles.** It cannot see them. The
+  ROC-AUC above chance reflects scene-context correlation, not detection.
+
+### Not committed
+
+- Model checkpoints (`*.pt` — gitignored)
+- Prediction CSVs (`data/urbansas_results/` — gitignored)
+- Frame cache (`data/urbansas_video_frames/` — gitignored)
+- Mel cache (`data/urbansas_mels/` — gitignored)
+
+### Deferred to Week 9c-extended
+
+- Pretrained audio baseline (AST/PaSST/BEATs)
+- Feature-level fusion (frozen embeddings + MLP head)
+- Cross-attention fusion
+- 4-class subclass task (requires label-semantics audit first)
+- Nested cross-validation to resolve the logistic fusion leakage
+
+---
+
 ## [v0.9.9-week9-multiview-fusion] — 2026-10-25
 
 Week 9a — Multi-view fusion on BDD100K (negative result).
