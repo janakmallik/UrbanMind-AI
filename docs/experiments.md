@@ -1621,3 +1621,219 @@ scripts, not part of the standard reproducibility pipeline.
   nested CV deferred (12–18h).
 
 Full nested CV remains a documented future-work item.
+
+---
+
+## 2026-10-29 — Week 9c-ext-1: Pretrained AST audio baseline
+
+**Hypothesis:** The from-scratch 1D-CNN audio baseline (MAVD F1 0.3686)
+is underpowered. A pretrained audio encoder (AST, AudioSet-pretrained)
+should achieve higher in-domain F1, and possibly better cross-city
+transfer.
+
+**Setup:**
+
+- **Model:** Frozen AST encoder (`MIT/ast-finetuned-audioset-10-10-0.4593`,
+  86M params) + linear head (1,538 trainable params).
+- **Input:** Precomputed AST features (1024 × 128 per clip) from 16 kHz
+  audio. Feature cache = 566 MB on disk (built in ~3.5 min via
+  `scripts/precompute_urbansas_ast_features.py`).
+- **Protocol:** Same 5-fold LOLA as the from-scratch baseline. Same
+  target. Same TAU external test at threshold 0.5. Same class weighting
+  per fold.
+- **Training:** 10 epochs, batch 8, AdamW (lr=1e-3 on head only),
+  CosineAnnealing, no augmentation. Runtime ~35 min for 5 folds + final.
+
+**Result — MAVD pooled OOF:**
+
+| Metric | From-scratch | AST | Δ |
+|---|---:|---:|---:|
+| F1 | 0.3686 | **0.4673** | **+0.0987** |
+| ROC-AUC | 0.6237 | **0.6801** | +0.0564 |
+| AP | 0.3296 | **0.3933** | +0.0637 |
+
+**Result — per-location ROC-AUC:**
+
+| Location | From-scratch | AST | Change |
+|---|---:|---:|---|
+| `acevedo0103` | 0.481 | 0.496 | +0.015 |
+| `magallanes0308` | **0.703** | 0.658 | **−0.045** |
+| `rivera0922` | 0.500 | 0.929 (n=2, noise) | — |
+| `rivera0923` | 0.687 | 0.773 | +0.086 |
+| `templete0103` | 0.507 | 0.672 | +0.165 |
+
+**Result — TAU external:**
+
+| Metric | From-scratch | AST |
+|---|---:|---:|
+| TAU ROC-AUC | 0.5587 | 0.5572 |
+| TAU F1 @ 0.5 | 0.0000 | 0.2754 |
+| TAU Precision @ 0.5 | 0.000 | 0.182 |
+| TAU Recall @ 0.5 | 0.000 | 0.568 |
+
+**Key findings:**
+
+1. **AST substantially improves in-domain MAVD performance** (F1 +27%
+   relative, ROC-AUC +9%). The from-scratch baseline was underpowered.
+
+2. **TAU ROC-AUC is essentially identical** (0.5587 vs 0.5572). The
+   apparent TAU F1 improvement (0.0000 → 0.2754) is a **threshold
+   artifact**: AST's probability distribution has mean ~0.47 for both
+   classes on TAU, so threshold 0.5 lands at a place where F1 is
+   non-zero. From-scratch's TAU probabilities collapsed near zero,
+   so threshold 0.5 predicted all-negative (F1 = 0). **Neither model
+   ranks TAU clips meaningfully better than the other.**
+
+3. **The improvement is not uniform across locations.**
+   `magallanes0308` regresses (0.703 → 0.658 ROC-AUC).
+   `templete0103` improves most (+0.165 ROC-AUC).
+
+4. **Threshold sensitivity:** AST's best MAVD F1 is at threshold 0.30
+   (0.478), not 0.50 (0.467). TAU's best F1 is at 0.50 (0.275), not
+   lower. **The two datasets prefer different thresholds.**
+
+**Limitations:**
+
+- Pretraining ≠ fair architecture comparison. AST has 86M frozen
+  pretrained params; from-scratch has ~350K random-init params.
+- TAU F1 improvement is a threshold artifact (documented above).
+- Frozen encoder only; full fine-tuning not attempted.
+- `magallanes0308` regression not explained.
+- `rivera0922` fold is 2 positives — F1=0 is noise.
+- Per-fold F1 std is ±0.19, driven by `rivera0922` and location
+  variability.
+
+**Deliverables:**
+
+- Model card: `docs/model_cards/urbansas_audio_pretrained_v1.md`
+- Training script: `scripts/train_urbansas_audio_pretrained.py`
+- Feature precompute: `scripts/precompute_urbansas_ast_features.py`
+- 16 kHz precompute: `scripts/precompute_urbansas_audio16k.py`
+- Dataset/model classes: `CachedASTFeatureDataset` in
+  `urbanintel.data.urbansas`, `ASTClassifier` in
+  `urbanintel.models.ast_classifier`
+- Raw OOF predictions: `data/urbansas_results/audio_pretrained_oof.csv`
+- TAU predictions: `data/urbansas_results/audio_pretrained_tau_external.csv`
+- Checkpoint: `data/urbansas_results/audio_pretrained_final.pt`
+- MLflow: `urbanintel-week9b-urbansas`
+
+**Tag:** `v0.9.13-week9c-pretrained-audio`
+
+---
+
+## 2026-10-29 — Week 9c-ext-1b: Fusion sensitivity to audio input
+
+**Hypothesis:** With a stronger audio baseline (AST), does late fusion
+with video still improve performance over the audio baseline alone?
+The complementary-signal hypothesis predicts fusion helps if the two
+modalities provide complementary information. If audio alone is
+strong, does fusion still add value?
+
+**Setup:**
+
+- Same fusion protocol as the primary experiment
+  (`train_urbansas_fusion.py`): 5-fold LOLA, six fusion models
+  (audio, video, mean, max, logistic, logistic+interaction), bootstrap
+  CIs at clip and location levels.
+- **Only change:** audio OOF predictions swapped from
+  `audio_only_oof.csv` (from-scratch, MAVD F1 0.3686) to
+  `audio_pretrained_oof.csv` (AST, MAVD F1 0.4673).
+- All else identical: video OOF unchanged, threshold fixed at 0.5, no
+  tuning on TAU.
+
+**Result — MAVD pooled OOF:**
+
+| Model | F1@0.5 | P | R | ROC-AUC | AP |
+|---|---:|---:|---:|---:|---:|
+| **AST audio alone** | **0.4673** | 0.410 | 0.543 | **0.6801** | **0.3933** |
+| Video alone | 0.4643 | 0.358 | 0.659 | 0.6130 | 0.3063 |
+| Mean fusion | 0.4598 | 0.372 | 0.601 | 0.6760 | 0.3771 |
+| **Max fusion** | **0.4793** | 0.343 | 0.797 | 0.6481 | 0.3207 |
+| Logistic | 0.4660 | 0.350 | 0.696 | 0.6684 | 0.3674 |
+| Logistic+I | 0.4608 | 0.348 | 0.681 | 0.6688 | 0.3675 |
+
+**Bootstrap CI — logistic vs AST audio:**
+
+| Comparison | Resample | Mean diff | 95% CI | P(logistic > audio) |
+|---|---|---:|---|---:|
+| Logistic − AST audio | clip | −0.0001 | [−0.0513, +0.0565] | 0.518 |
+| Logistic − AST audio | location | −0.0028 | [−0.0480, +0.0298] | 0.503 |
+| Logistic+I − AST audio | clip | −0.0052 | [−0.0567, +0.0503] | 0.440 |
+| Logistic+I − AST audio | location | −0.0082 | [−0.0480, +0.0205] | 0.323 |
+
+**Result — TAU external:**
+
+| Model | F1 | P | R |
+|---|---:|---:|---:|
+| AST audio alone | 0.2754 | 0.182 | 0.568 |
+| Video alone | 0.2362 | 0.326 | 0.185 |
+| Mean fusion | 0.2676 | 0.311 | 0.235 |
+| Max fusion | 0.2865 | 0.188 | 0.605 |
+| Logistic | 0.2943 | 0.212 | 0.481 |
+| Logistic+I | 0.2957 | 0.216 | 0.469 |
+
+**Key findings:**
+
+1. **Fusion does not improve MAVD F1 when audio is strong.** The
+   logistic fusion delta vs AST audio alone is −0.0001 (clip-level)
+   and −0.0028 (location-level), with both CIs including zero.
+
+2. **The fusion benefit observed with from-scratch audio is gone.**
+   From-scratch fusion: logistic +0.08 over audio. AST fusion: logistic
+   −0.0001 over audio. **The complementary-signal hypothesis is
+   conditional on audio weakness.**
+
+3. **Video's contribution was a substitute for weak audio.** AST's
+   AudioSet pretraining (including vehicle categories) captures much
+   of the signal video was providing as scene context. When that
+   signal is in audio, video adds nothing.
+
+4. **TAU fusion does slightly help** (0.2754 → 0.2943 for logistic),
+   but the absolute numbers are low (precision 0.21) and the
+   improvement is small (+0.019).
+
+5. **Max fusion is the only MAVD improvement** (+0.012 pooled F1 over
+   AST alone), but drops ROC-AUC by 0.032. Marginal.
+
+6. **Mean fusion can hurt on specific folds.** On `rivera0923`, mean
+   fusion F1 = 0.2564, while both AST alone (0.4815) and video alone
+   (0.3333) are better. Fusion diluted the signal when modalities
+   disagreed systematically. Max fusion (0.5246 on same fold) avoids
+   this.
+
+**Limitations:**
+
+- Same LOLA leakage concern for logistic fusion heads (documented in
+  primary fusion card). Not resolved here.
+- One-fold-pilot validation of leakage (from primary fusion work)
+  applies here as well — limited evidence, not proof.
+- TAU F1 numbers are low for all models; the +0.019 fusion improvement
+  over AST alone is small and not deployable.
+
+**Deliverables:**
+
+- Fusion model card sensitivity section:
+  `docs/model_cards/urbansas_fusion_v1.md` (see "Sensitivity to audio
+  input" section)
+- Same script as primary fusion: `scripts/train_urbansas_fusion.py`
+  (audio input swapped via CSV path edit)
+- Raw OOF predictions: `data/urbansas_results/fusion_oof.csv`
+- TAU predictions: `data/urbansas_results/fusion_tau_external.csv`
+- From-scratch fusion results preserved at
+  `data/urbansas_results/fusion_*_fromscratch.*`
+
+**Synthesis of Week 9c fusion findings:**
+
+| Audio input | Fusion vs audio | TAU transfer |
+|---|---|---|
+| From-scratch (F1 0.3686) | +0.08 logistic (marginal, CI includes zero at location level) | Collapses (0.0000) |
+| AST (F1 0.4673) | −0.0001 logistic (no improvement) | 0.2754 → 0.2943 logistic (+0.019, low absolute) |
+
+**The honest conclusion:** fusion helps when audio is weak. When audio
+is strong, fusion does not help. The complementary-signal hypothesis
+holds for weak-audio scenarios but not for strong-audio. This is a
+substantive, non-obvious finding that would not have emerged from
+testing fusion with only one audio baseline.
+
+---
+

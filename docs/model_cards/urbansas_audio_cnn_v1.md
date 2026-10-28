@@ -254,7 +254,9 @@ unidentified."
 ## What this model is NOT a demonstration of
 
 - Cross-modal fusion (this is audio-only)
-- Pretrained audio backbones (from-scratch only)
+- **Pretrained audio backbones — see `urbansas_audio_pretrained_v1.md`
+  for an AST-based baseline with substantially higher MAVD F1 (0.4673
+  vs 0.3686, +27% relative)**
 - Audio-visual correspondence
 - Generalizable offscreen-vehicle detection
 - Deployment-quality performance

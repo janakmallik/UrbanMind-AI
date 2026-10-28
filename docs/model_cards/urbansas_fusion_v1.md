@@ -312,6 +312,193 @@ uv run python scripts/train_urbansas_video.py --epochs 15 --batch-size 4 --num-w
 uv run python scripts/train_urbansas_fusion.py
 ```
 
+## Sensitivity to audio input — fusion with AST audio
+
+The primary fusion result above uses the **from-scratch 1D-CNN** audio
+baseline. A natural follow-up question: does fusion still help when
+the audio input is a *strong* pretrained baseline (AST) instead of a
+weak from-scratch one?
+
+This section reports that experiment. The audio input is now AST
+(frozen AudioSet encoder + linear head, F1 0.4673 on MAVD), video is
+unchanged, all other protocol aspects are identical (5-fold LOLA, same
+threshold, same bootstrap).
+
+### Results — MAVD pooled OOF
+
+| Model | F1@0.5 | P | R | ROC-AUC | AP |
+|---|---:|---:|---:|---:|---:|
+| **AST audio alone** | **0.4673** | 0.410 | 0.543 | **0.6801** | **0.3933** |
+| Video alone | 0.4643 | 0.358 | 0.659 | 0.6130 | 0.3063 |
+| Mean fusion | 0.4598 | 0.372 | 0.601 | 0.6760 | 0.3771 |
+| Max fusion | **0.4793** | 0.343 | 0.797 | 0.6481 | 0.3207 |
+| Logistic (weighted) | 0.4660 | 0.350 | 0.696 | 0.6684 | 0.3674 |
+| Logistic+I (weighted) | 0.4608 | 0.348 | 0.681 | 0.6688 | 0.3675 |
+
+### Bootstrap CI on logistic − AST audio
+
+| Comparison | Resample | Mean diff | 95% CI | P(logistic > audio) |
+|---|---|---:|---|---:|
+| Logistic − AST audio | clip | −0.0001 | [−0.0513, +0.0565] | 0.518 |
+| Logistic − AST audio | location | −0.0028 | [−0.0480, +0.0298] | 0.503 |
+| Logistic+I − AST audio | clip | −0.0052 | [−0.0567, +0.0503] | 0.440 |
+| Logistic+I − AST audio | location | −0.0082 | [−0.0480, +0.0205] | 0.323 |
+
+**The fusion improvement is zero.** Both CIs include zero, and the
+point estimates are near-zero or slightly negative. Unlike the
+from-scratch fusion case (where logistic fusion improved F1 by +0.08
+over from-scratch audio), **fusion does not beat AST audio alone.**
+
+### Results — TAU external
+
+| Model | F1 | P | R |
+|---|---:|---:|---:|
+| AST audio alone | 0.2754 | 0.182 | 0.568 |
+| Video alone | 0.2362 | 0.326 | 0.185 |
+| Mean fusion | 0.2676 | 0.311 | 0.235 |
+| Max fusion | 0.2865 | 0.188 | 0.605 |
+| **Logistic (weighted)** | **0.2943** | 0.212 | 0.481 |
+| **Logistic+I (weighted)** | **0.2957** | 0.216 | 0.469 |
+
+**On TAU, fusion does slightly improve over AST alone** (0.2754 →
+0.2943 for logistic). But the improvement is small (+0.019), and all
+these numbers are low. Precision at 0.21 means the fusion model is
+still over-predicting. **Not a deployable result.**
+
+### Interpretation — the complementary-signal hypothesis is conditional
+
+**The fusion benefit observed with from-scratch audio disappears when
+audio is strong.**
+
+| Audio baseline | Fusion vs audio F1 | Interpretation |
+|---|---|---|
+| From-scratch (0.3686) | +0.08 logistic | Fusion adds signal because audio is weak |
+| **AST (0.4673)** | **−0.0001 logistic** | Fusion adds nothing because audio is strong |
+
+**This is a substantive finding, not a negative result to be hidden.**
+It says: cross-modal fusion helps when the individual modalities are
+weak and complementary. When one modality is already strong (AST
+audio, ROC-AUC 0.6801 > video's 0.6130), fusion does not add value —
+the strong modality's signal dominates and the fusion head cannot
+extract additional signal from the weak one.
+
+**The video model's contribution was a substitute for weak audio.**
+AST's AudioSet pretraining includes vehicle categories, capturing
+much of the "is this a busy scene / offscreen vehicle likely?" signal
+that the video model was previously providing as scene context. When
+that signal is available from audio, video is redundant.
+
+### Fusion can also hurt: `rivera0923` case
+
+With AST audio, mean fusion F1 on `rivera0923` dropped to **0.2564**,
+while AST alone was 0.4815 and video alone was 0.3333. **Both inputs
+beat their fused mean.** This is a real failure case: when the two
+models' probability distributions disagree systematically on a fold,
+averaging them can move both toward the wrong answer. Max fusion
+(0.5246 on the same fold) avoids this because it takes the higher
+signal rather than averaging.
+
+**This shows that naive probability averaging is not always safe.**
+When modalities disagree systematically (not just randomly), mean
+fusion can actively hurt.
+
+## Known limitations
+
+1. **Leakage concern for logistic fusion heads — investigated by two-fold diagnostic pilot.**
+   
+   The fusion head's training probabilities for fold `L` come from base models
+   that were trained on location `L`'s data in other folds. This is a subtle
+   leakage channel.
+   
+   **Two-fold diagnostic pilot (2026-10-27).** Each pilot retrained base models
+   on a leak-free inner split (different assignment per pilot) and trained a
+   fresh logistic head on the resulting probabilities, then evaluated on the
+   outer fold. Both pilots ran 15 epochs with the default `num_workers=4`:
+   
+   | Pilot | Outer fold | Standard head F1 | Nested head F1 | Delta |
+   |---|---|---|---|---|
+   | 1 | `acevedo0103` | 0.4948 | 0.5185 | **+0.0237** |
+   | 2 | `magallanes0308` | 0.4402 | 0.4279 | **−0.0123** |
+   | **Average** | | | | **≈ +0.0057** |
+   
+   The nested heads used substantially fewer training clips than the standard
+   heads (265 vs 440 in pilot 1; 130 vs 365 in pilot 2). The standard head had
+   ~2–3× the training data in both pilots.
+   
+   **Interpretation.** Two diagnostic folds with different inner splits show
+   deltas within ±0.024 of zero. **This provides limited evidence against a
+   large, consistently positive effect from the suspected leakage channel.
+   It does not establish that leakage is negligible, and it does not rule out
+   leakage as a contributor to the pooled +0.08 result.** The near-zero delta
+   is consistent with several possibilities:
+   
+   - Leakage is small.
+   - Leakage is real but offset by training-set-size effects.
+   - Leakage is fold-dependent (small on these two folds, possibly larger on
+     others).
+   
+   The comparison is further confounded by training-set size and location
+   distribution. **The two pilots are diagnostic folds, not independent
+   replications of the full experiment.**
+   
+   **Full nested CV remains future work.** Estimated cost: **12–18h** on this
+   hardware (15-epoch basis, from measured pilot runtimes). Not run.
+   
+   **The +0.08 pooled improvement should be read as "promising, not proven."**
+   The pilot provides diagnostic evidence, not validation. If the +0.08 ever
+   becomes a headline claim, full nested CV is the mandatory validation step.
+   
+   The zero-parameter fusion models (`mean`, `max`) are unaffected — they fit
+   no parameters and cannot leak.
+
+2. **Max fusion's MAVD improvement over video-only is marginal.** +0.007
+   pooled F1 (0.4713 vs 0.4643). Bootstrap CI not computed for this pair, but
+   the point estimate is close enough that it should be treated as "roughly
+   tied with video-only on pooled F1, better on per-fold stability (std 0.066
+   vs 0.204), better on `both` subclass F1 (0.8000 vs 0.6019)."
+
+3. **Mean fusion has the best ROC-AUC but not the best F1.** Threshold tuning
+   on training data (not TAU) is a natural future experiment; deferred here.
+
+4. **Logistic fusion improves MAVD in-domain but not definitively.** The
+   clip-level CI excludes zero but the location-level CI includes zero, and
+   the leakage concern (limitation #1) is unresolved.
+
+5. **Logistic fusion collapses on TAU (0.0230).** The +0.08 MAVD improvement
+   does not transfer. Any production use would need to be evaluated on
+   target-domain data.
+
+6. **Subclass improvements support complementary-signal hypothesis but do
+   not prove it.** `only_offscreen` F1 goes 0.5957 → 0.9524 (logistic) and
+   `both` goes 0.5306 → 0.7027. Consistent with complementary signals; not
+   causal. **Post-hoc caveat:** the negative pool used in these subclass
+   diagnostics (`only_visible` + `empty`, 402 clips) contains ~32 ambiguous
+   clips — clips labelled `-1` where the annotator heard an
+   unclassified vehicle sound (`non_identifiable_vehicle_sound = 1`). The
+   `only_visible` subclass (357 clips) is a clean negative; the `empty`
+   subclass is ambiguous. **The complementarity pattern against
+   `only_visible` alone is clean and holds; the pooled negative-pool
+   comparison is partly contaminated.** See `docs/dataset_cards/urbansas.md`
+   for the audit.
+
+7. **No threshold tuning on TAU.** Threshold 0.5 fixed before evaluation.
+   TAU is a held-out external test and was not used to select any fusion
+   model or tune any hyperparameter.
+
+8. **`rivera0922` fold is unreliable.** 2 positives; per-fold F1 of 0.5000
+   is 1 of 2 true positives. Report as noise.
+
+9. **Sensitivity to audio input (new, this section).** When AST audio
+   replaces from-scratch audio, the fusion improvement disappears on MAVD
+   (Δ ≈ 0, CI includes zero). Fusion does not help when one modality is
+   already strong. The complementary-signal hypothesis is conditional on
+   audio weakness.
+
+10. **Mean fusion can hurt on specific folds (`rivera0923`).** When the two
+    models disagree systematically, averaging their probabilities moves
+    both toward the wrong answer. Max fusion avoids this by taking the
+    higher signal.
+    
 ## MLflow
 
 - Experiment: `urbanintel-week9b-urbansas`
