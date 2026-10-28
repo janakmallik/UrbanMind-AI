@@ -16,15 +16,18 @@ from datetime import datetime
 import pytest
 import torch
 
-pytestmark = pytest.mark.skipif(
-    not torch.cuda.is_available(),
-    reason=(
-        "Qwen report generator requires CUDA: its transformers import "
-        "(AutoModelForCausalLM, GenerationMixin) raises RuntimeError on "
-        "CPU-only environments due to torch.accelerator.current_accelerator() "
-        "not returning None on CPU. See CI failure logs for details."
-    ),
-)
+# Module-level skip: the Qwen generator imports transformers
+# (AutoModelForCausalLM, GenerationMixin), which crashes on CPU-only
+# environments due to torch.accelerator.current_accelerator() not
+# returning None on CPU. Must guard the import itself, not just mark
+# tests as skip — pytest evaluates module-level imports at collection
+# time, before test markers take effect.
+if not torch.cuda.is_available():
+    pytest.skip(
+        "Qwen report generator requires CUDA; "
+        "transformers GenerationMixin import fails on CPU-only environments",
+        allow_module_level=True,
+    )
 
 from urbanintel.reporting.qwen_generator import FEW_SHOT_EXAMPLES, SYSTEM_PROMPT
 from urbanintel.reporting.schema import (
