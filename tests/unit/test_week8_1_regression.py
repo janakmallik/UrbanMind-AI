@@ -13,6 +13,19 @@ from __future__ import annotations
 
 from datetime import datetime
 
+import pytest
+import torch
+
+pytestmark = pytest.mark.skipif(
+    not torch.cuda.is_available(),
+    reason=(
+        "Qwen report generator requires CUDA: its transformers import "
+        "(AutoModelForCausalLM, GenerationMixin) raises RuntimeError on "
+        "CPU-only environments due to torch.accelerator.current_accelerator() "
+        "not returning None on CPU. See CI failure logs for details."
+    ),
+)
+
 from urbanintel.reporting.qwen_generator import FEW_SHOT_EXAMPLES, SYSTEM_PROMPT
 from urbanintel.reporting.schema import (
     AudioEventEvidence,
