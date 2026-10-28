@@ -149,7 +149,13 @@ To be explicit, because the "multi-modality" label can overclaim:
   different target. Week 8 fuses at the output layer (report
   generation); Week 9a fuses at the feature layer (multi-view). Neither
   is cross-modal fusion of audio + video + text simultaneously.
-- **Not comprehensive cross-modal fusion.** Week 9a (multi-view on BDD100K) is same-modality. Week 9b's attempts on 311 tabular+text and MAVAD were rejected (descriptor is categorical lookup; MAVAD's public release is video-only). Week 9c is the first genuine cross-modal experiment: late fusion of audio and video on the paired Urbansas dataset. The result is a documented marginal in-domain gain (best pooled F1 0.4713 with max fusion, vs 0.4643 video-only) with unresolved leakage caveats for the learned fusion heads, and no cross-city transfer beyond what video-only already achieves. Higher-capability fusion methods (feature-level, cross-attention) remain future work.
+- **Not comprehensive cross-modal fusion.** Week 9a (multi-view on BDD100K) is same-modality. Week 9b's attempts on 311 tabular+text and MAVAD were rejected (descriptor is categorical lookup; MAVAD's public release is video-only). Week 9c is the first genuine cross-modal experiment: probability-level late fusion of audio and video on the paired Urbansas dataset.
+
+  **Result (from-scratch audio, `v0.9.10-week9c-urbansas`):** marginal in-domain gain (best pooled MAVD F1 0.4713 with max fusion, vs 0.4643 video-only). Does not transfer to TAU. Leakage concern for learned fusion heads was partially investigated in `v0.9.11-week9c-audit` — a two-fold pilot showed leakage is not the dominant explanation, though full nested CV remains future work.
+
+  **Extension (AST audio, `v0.9.13-week9c-pretrained-audio`):** A pretrained AST audio baseline (MAVD F1 0.4673, ROC-AUC 0.6801) substantially improves in-domain performance over from-scratch audio but does not improve TAU ranking (ROC-AUC 0.5572 vs 0.5587 — the apparent F1 improvement is a threshold artifact). **When audio is strong, fusion no longer helps.** This confirms the complementary-signal hypothesis is conditional on audio weakness, not a general property of these modalities.
+
+  Higher-capability fusion methods (feature-level, cross-attention) remain future work, and should be tested with AST as the audio input — the harder case where late fusion did not help.
 - **Not a real-time system.** Every model is trained offline; inference
   is per-clip, batch-style.
 - **Not deployed as a service.** There is no FastAPI, no Docker, no

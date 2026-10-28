@@ -118,7 +118,7 @@ def main():
     )
 
     merged["fold"] = merged["location_id"].apply(
-        lambda loc: next((f for f, l in FOLD_TO_LOC.items() if l == loc), None)
+        lambda loc: next((f for f, loc_name in FOLD_TO_LOC.items() if loc_name == loc), None)
     )
     check(
         "All clips map to a known fold",

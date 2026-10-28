@@ -64,6 +64,7 @@ This is a 9-week portfolio project. If you're new, here's the fastest path:
 | Graph | METR-LA spatiotemporal | GWNet MAE 3.44 mph | 3 |
 | Text | NYC 311 descriptor classification | DistilBERT 100% (trivial task) | 4 |
 | Image | BDD100K scene classification | ResNet-50 F1 0.6984 | 5 |
+| Audio-visual fusion (Urbansas) | Cross-modal fusion | from-scratch + AST audio, R(2+1)D-18 video, probability-level late fusion | 9c |
 
 **Skills demonstrated:** Classical ML, deep learning, time series, graph neural networks, text/NLP transformers, computer vision, PyTorch, MLflow, reproducibility, honest evaluation.
 
@@ -108,14 +109,22 @@ not calendar weeks — they are units of shippable work.
 | **8** | **Incident report generator (Qwen)** | **Qwen 0.890 ~ 0.902 vs template 0.626** | **`v0.9.8-week8-qwen`** |
 | **9a** | **Multi-view fusion (BDD100K)** | **Fusion 0.6910 vs ResNet 0.6986 (CI includes 0); residential recall 0.41→0.67** | **`v0.9.9-week9-multiview-fusion`** |
 | 9b | Cross-modal fusion (attempted) | 311 tabular+text rejected — descriptor is categorical lookup | documented |
-| 9c | Cross-modal fusion (Urbansas audio+video) | Audio 0.3686 F1 / video 0.4643 F1 / max fusion 0.4713 F1; logistic +0.08 with leakage caveat; TAU transfer limited to video/max | `v0.9.10-week9c-urbansas` |
-| 10 | Uncertainty + calibration (conformal, ECE) | Not started | — |
+| 9c (audit) | Week 9c label + evaluation audit | `-1` sentinel ambiguous; video's TAU signal partly city-level; nested-CV pilot shows leakage not dominant | `v0.9.11-week9c-audit` |
+| 9c-ext-1 | Pretrained AST audio + fusion sensitivity | AST MAVD F1 0.4673 (+27% over from-scratch); TAU ROC-AUC identical to from-scratch (threshold artifact); fusion does not help when audio is strong | `v0.9.13-week9c-pretrained-audio` |
 | 11 | Generative models (VAE / diffusion) | Not started | — |
 | 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |
 
 **Total experiments logged:** 40+ trained models across 7 modalities
 **Total tests:** 81 passing unit tests
 **MLflow experiments:** 11 (`urbanintel-week1` through `urbanintel-week8-1`)
+
+**Week 9c series (chronological):**
+
+- **`v0.9.10-week9c-urbansas`** — audio baseline (from-scratch), video baseline, and probability-level late fusion on Urbansas. Fusion helps marginally in-domain (max 0.4713 F1), does not transfer to TAU.
+- **`v0.9.11-week9c-audit`** — label semantics audit (`-1` is ambiguous, not clean negative); scene-metadata baseline (video's TAU signal is partly city-level); nested-CV pilot (leakage concern not dominant on 2 folds).
+- **`v0.9.13-week9c-pretrained-audio`** — AST pretrained audio baseline (MAVD F1 0.4673, ROC-AUC 0.6801); fusion sensitivity analysis showing the complementary-signal hypothesis is conditional on audio weakness.
+
+**Gap note:** `v0.9.12` was skipped. The version numbering is not contiguous across Week 9c sub-milestones; commits and tags tell the actual story.
 ---
 
 ## Week 1 — NYC 311 Complaint Classification (Tabular ML)

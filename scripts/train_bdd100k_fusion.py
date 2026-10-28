@@ -230,8 +230,7 @@ def evaluate_original_resnet_on_clean_test() -> dict:
     """Load bdd_resnet50_best.pt and evaluate on clean_test images."""
     import torch
     import torch.nn as nn
-    from PIL import Image
-    from torch.utils.data import DataLoader, Dataset
+    from torch.utils.data import DataLoader
     from torchvision import models, transforms
 
     from urbanintel.config import dataset_path

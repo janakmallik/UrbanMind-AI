@@ -19,9 +19,7 @@ Saves:
 from __future__ import annotations
 
 import argparse
-import json
 import sys
-import time
 from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -37,7 +35,6 @@ import torch
 import torch.nn as nn
 from sklearn.metrics import (
     accuracy_score,
-    confusion_matrix,
     f1_score,
     precision_score,
     recall_score,

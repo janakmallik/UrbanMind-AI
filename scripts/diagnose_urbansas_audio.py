@@ -43,7 +43,6 @@ from sklearn.metrics import (
 )
 
 from urbanintel.config import urbansas_root
-from urbanintel.data.urbansas import _load_clip_metadata
 
 VEHICLE_LABELS = {"car", "bus", "motorbike", "truck"}
 

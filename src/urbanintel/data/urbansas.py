@@ -560,3 +560,107 @@ class CachedUrbansasVideoDataset(Dataset):
         frames_t = torch.from_numpy(np.ascontiguousarray(frames)).permute(3, 0, 1, 2).float()
         label = int(row["has_offscreen"])
         return frames_t, label
+
+
+class Cached16kAudioDataset(Dataset):
+    """16 kHz audio dataset backed by the AST-compatible waveform cache.
+
+    Expects {cache_dir}/audio.npy and {cache_dir}/filenames.txt
+    (created by scripts/precompute_urbansas_audio16k.py).
+
+    Returns AST-processed input features + label.
+
+    Note: cache_dir must be passed explicitly by the caller to avoid
+    ambiguity about where the cache lives. There is no default path.
+    """
+
+    def __init__(
+        self,
+        df: pd.DataFrame,
+        feature_extractor,
+        cache_dir: Path,
+    ):
+        self.df = df.reset_index(drop=True)
+        self.feature_extractor = feature_extractor
+        self._cache_dir = Path(cache_dir)
+        if not (self._cache_dir / "audio.npy").exists():
+            raise FileNotFoundError(
+                f"16 kHz audio cache not found at {self._cache_dir}/audio.npy. "
+                "Run scripts/precompute_urbansas_audio16k.py first."
+            )
+        self._audio = None
+        self._stem_to_idx = None
+
+    def _ensure_loaded(self):
+        if self._audio is None:
+            self._audio = np.load(self._cache_dir / "audio.npy", mmap_mode="r")
+            with open(self._cache_dir / "filenames.txt") as f:
+                stems = f.read().strip().split("\n")
+            self._stem_to_idx = {s: i for i, s in enumerate(stems)}
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int):
+        self._ensure_loaded()
+        row = self.df.iloc[idx]
+        stem = row["filename"]
+        if stem not in self._stem_to_idx:
+            raise KeyError(
+                f"Clip '{stem}' not in 16k audio cache. "
+                f"Cache contains {len(self._stem_to_idx)} stems. "
+                f"Example cache stems: {list(self._stem_to_idx)[:3]}"
+            )
+        audio = np.asarray(self._audio[self._stem_to_idx[stem]])
+        feats = self.feature_extractor(audio, sampling_rate=16_000, return_tensors="pt")
+        input_values = feats["input_values"].squeeze(0)
+        label = int(row["has_offscreen"])
+        return input_values, label
+
+
+class CachedASTFeatureDataset(Dataset):
+    """AST feature dataset backed by the precomputed feature cache.
+
+    Expects {cache_dir}/ast_features.npy and filenames.txt
+    (created by scripts/precompute_urbansas_ast_features.py).
+
+    Returns AST input_values (1024, 128) + label. No per-batch feature extraction.
+    """
+
+    def __init__(self, df: pd.DataFrame, cache_dir: Path):
+        self.df = df.reset_index(drop=True)
+        self._cache_dir = Path(cache_dir)
+        if not (self._cache_dir / "ast_features.npy").exists():
+            raise FileNotFoundError(
+                f"AST feature cache not found at {self._cache_dir}/ast_features.npy. "
+                "Run scripts/precompute_urbansas_ast_features.py first."
+            )
+        self._features = None
+        self._stem_to_idx = None
+
+    def _ensure_loaded(self):
+        if self._features is None:
+            self._features = np.load(self._cache_dir / "ast_features.npy")
+            with open(self._cache_dir / "filenames.txt") as f:
+                stems = f.read().strip().split("\n")
+            self._stem_to_idx = {s: i for i, s in enumerate(stems)}
+            # Warm the OS page cache by touching all features once.
+            # Without this, first-batch reads are 10-15× slower than warm reads,
+            # which makes eval (few batches) disproportionately slow vs training
+            # (many batches, mostly warm by the end).
+            _ = self._features.sum()
+
+    def __len__(self) -> int:
+        return len(self.df)
+
+    def __getitem__(self, idx: int):
+        self._ensure_loaded()
+        row = self.df.iloc[idx]
+        stem = row["filename"]
+        if stem not in self._stem_to_idx:
+            raise KeyError(f"Clip '{stem}' not in AST feature cache")
+        # np.array() creates a writable copy, avoiding the non-writable tensor warning
+        # and ensuring torch.from_numpy works on a "normal" array (not memmap slice)
+        feat = np.array(self._features[self._stem_to_idx[stem]], dtype=np.float32, copy=True)
+        label = int(row["has_offscreen"])
+        return torch.from_numpy(feat), label

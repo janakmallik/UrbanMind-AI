@@ -19,7 +19,6 @@ import numpy as np
 from urbanintel.config import urbansas_root
 from urbanintel.data.urbansas import (
     AUDIO_SAMPLE_RATE,
-    N_MELS,
     audio_to_mel,
     load_audio,
 )

@@ -59,7 +59,6 @@ from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 from urbanintel.config import urbansas_root
 from urbanintel.data.urbansas import (
     CachedUrbansasVideoDataset,
-    UrbansasVideoDataset,
     prepare_urbansas,
 )
 

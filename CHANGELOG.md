@@ -4,8 +4,117 @@ All notable changes to UrbanMind-AI, one entry per tagged milestone.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
+## [v0.9.13-week9c-pretrained-audio] — 2026-10-29
+
+Week 9c extension — pretrained AST audio baseline and fusion sensitivity
+analysis.
+
+### Added
+
+- **AST audio baseline**: Frozen Audio Spectrogram Transformer
+  (`MIT/ast-finetuned-audioset-10-10-0.4593`, 86M params) + linear head
+  (1,538 trainable params). 16 kHz audio feature cache (566 MB) and AST
+  feature precompute.
+- **Fusion sensitivity analysis**: re-ran late fusion with AST as the
+  audio input.
+- `scripts/precompute_urbansas_audio16k.py`: 16 kHz audio cache for
+  AST-compatible preprocessing.
+- `scripts/precompute_urbansas_ast_features.py`: AST feature cache
+  (566 MB, 1024 × 128 per clip).
+- `scripts/train_urbansas_audio_pretrained.py`: AST + linear head
+  trainer with 5-fold LOLA + TAU external test.
+- `src/urbanintel/data/urbansas.py`: `Cached16kAudioDataset` and
+  `CachedASTFeatureDataset`.
+- `src/urbanintel/models/ast_classifier.py`: `ASTClassifier` (frozen
+  encoder + trainable head).
+- `docs/model_cards/urbansas_audio_pretrained_v1.md`: AST model card.
+
+### Results
+
+- **AST audio (MAVD)**: pooled F1 0.4673 (from-scratch 0.3686, +27%),
+  ROC-AUC 0.6801 (from-scratch 0.6237, +9%), AP 0.3933 (from-scratch
+  0.3296, +19%).
+- **AST audio (TAU)**: ROC-AUC 0.5572, effectively identical to
+  from-scratch (0.5587). The apparent F1 improvement (0.0000 → 0.2754)
+  is a threshold artifact — AST's probability distribution shape hits
+  threshold 0.5 differently, not because AST ranks TAU clips better.
+- **Fusion with AST audio**: does not improve MAVD F1 over AST alone
+  (logistic delta −0.0001, both CIs include zero). Max fusion gives
+  marginal +0.012 F1 but drops ROC-AUC by 0.032.
+- **Complementary-signal hypothesis falsified for strong audio**: with
+  from-scratch audio, logistic fusion improved F1 by +0.08. With AST
+  audio, it doesn't. The fusion benefit is conditional on audio
+  weakness.
+
+### Documented
+
+- TAU threshold artifact: don't claim AST improves cross-city
+  generalization in ranking.
+- `magallanes0308` regression (AST 0.658 vs from-scratch 0.703 ROC-AUC)
+  unexplained.
+- Mean fusion can hurt on specific folds when modalities disagree
+  systematically (`rivera0923`: mean 0.4626 vs AST alone 0.4815 vs video
+  alone 0.3333).
+
+### Amendments
+
+- `docs/model_cards/urbansas_fusion_v1.md`: added "Sensitivity to audio
+  input" section.
+- `docs/model_cards/urbansas_audio_cnn_v1.md`: cross-reference to AST
+  card.
+- `docs/experiments.md`: two new entries (9c-ext-1, 9c-ext-1b).
+
+### Not committed
+
+- AST feature cache (`data/urbansas_ast_features/` — gitignored)
+- 16 kHz audio cache (`data/urbansas_audio16k/` — gitignored)
+- Model checkpoint (`audio_pretrained_final.pt` — gitignored)
+- Prediction CSVs (gitignored)
+
+---
+
+## [v0.9.11-week9c-audit] — 2026-10-27
+
+Week 9c post-hoc audit — label semantics, video TAU signal, and nested-CV
+pilot for the learned fusion head.
+
+### Added
+
+- `scripts/diagnose_urbansas_oof.py`: OOF integrity audit (structural
+  consistency, not provenance).
+- `scripts/diagnose_urbansas_nested_cv_acevedo.py`: nested-CV pilot on
+  `acevedo0103` as outer fold.
+- `scripts/diagnose_urbansas_nested_cv_magallanes.py`: nested-CV pilot on
+  `magallanes0308` as outer fold.
+- `docs/dataset_cards/urbansas.md`: new "Annotation semantics — the `-1`
+  sentinel" section.
+- `docs/experiments.md`: two new entries (10a label audit, second pilot).
+
+### Findings
+
+- **`-1` is not a clean negative.** 57% of `-1` clips carry
+  `non_identifiable_vehicle_sound = 1`. The `empty` subclass is
+  ambiguous, not confirmed negative.
+- **Video's TAU signal is partly city-level.** A city-only logistic
+  regression on TAU achieves F1 0.2982, higher than the video model's
+  0.2362 (different clip sets — directional, not strict comparison).
+- **Nested-CV pilot on two folds** shows deltas of +0.0237
+  (`acevedo0103`) and −0.0123 (`magallanes0308`), averaging ≈ 0.0057.
+  This provides limited evidence against a large leakage effect, but
+  does not establish that leakage is negligible.
+
+### Documented
+
+- The `+0.08` from-scratch fusion result remains "promising, not
+  proven." Full nested CV (12–18h measured estimate) deferred.
+- The `empty` subclass was used as a clean negative in Week 9c
+  per-subclass diagnostics — it isn't. Amendment recorded in the fusion
+  model card.
+
+---
 
 ## [v0.9.10-week9c-urbansas] — 2026-10-27
+
 
 Week 9c — Urbansas cross-modal audio-video fusion.
 

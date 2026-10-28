@@ -281,3 +281,12 @@ data/ucf_crime_clips/
 # Quickstart checkpoint directory
 checkpoints/*.pt
 !checkpoints/.gitkeep
+
+
+# Urbansas generated data, caches, and local evaluation artifacts
+data/urbansas_mels/
+data/urbansas_results/
+data/urbansas_samples/
+data/urbansas_video_frames/
+data/urbansas_audio16k/
+data/urbansas_ast_features/

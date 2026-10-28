@@ -12,7 +12,6 @@ reconstruction is wrong or the preprocessing is wrong.
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 

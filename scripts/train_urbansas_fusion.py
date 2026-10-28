@@ -215,7 +215,7 @@ def main():
     global _loc_ids
 
     # Load base OOF predictions and align
-    a_df = pd.read_csv(RESULTS / "audio_only_oof.csv").rename(columns={"y_prob": "p_audio"})
+    a_df = pd.read_csv(RESULTS / "audio_pretrained_oof.csv").rename(columns={"y_prob": "p_audio"})
     v_df = pd.read_csv(RESULTS / "urbansas_video_oof.csv").rename(columns={"y_prob": "p_video"})
     m = a_df.merge(v_df[["filename", "p_video"]], on="filename", how="inner")
     assert len(m) == 540, f"expected 540 MAVD clips, got {len(m)}"
@@ -234,7 +234,7 @@ def main():
 
     # Fitted models on all MAVD, applied to TAU, need OOF probs of TAU from
     # both base models. TAU OOF probs come from a model trained on all MAVD.
-    tau_a = pd.read_csv(RESULTS / "audio_only_tau_external.csv").rename(
+    tau_a = pd.read_csv(RESULTS / "audio_pretrained_tau_external.csv").rename(
         columns={"y_prob": "p_audio"}
     )
     tau_v = pd.read_csv(RESULTS / "urbansas_video_tau_external.csv").rename(
