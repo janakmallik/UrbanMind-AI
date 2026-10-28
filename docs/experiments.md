@@ -1542,3 +1542,82 @@ This is the remaining methodological concern from Week 9c: the +0.08 MAVD
 improvement is subject to an outer-fold leakage channel that requires
 retraining the base models per outer fold. Nested CV resolves it at ~20 hours
 of compute.
+
+---
+
+## 2026-10-27 — Week 9c: Second nested-CV pilot (magallanes0308)
+
+**Setup:** Same pilot design as the `acevedo0103` pilot, but with
+`magallanes0308` as the outer fold and a different inner split:
+
+- Outer: `magallanes0308` (175 clips, 48 positives)
+- Inner train: `templete0103` + `rivera0923` (235 clips, 56 positives)
+- Inner test: `rivera0922` + `acevedo0103` (130 clips, 34 positives)
+
+**Configuration:** 15 epochs, `num_workers=4`, batch 16 (audio) / 4 (video).
+This is the same configuration as the first pilot and the full baselines.
+The 10-epoch / `num_workers=0` optimization discussed earlier was not applied
+in the actual run.
+
+**Runtime (from console output):** audio 1,031s (17.2 min), video 350s
+(5.8 min), total pilot ~23 min.
+
+**Result:**
+
+| Model on `magallanes0308` | F1 | P | R |
+|---|---:|---:|---:|
+| audio-only | 0.2154 | 0.412 | 0.146 |
+| video-only | 0.4466 | 0.291 | 0.958 |
+| logistic (standard OOF) | 0.4402 | 0.286 | 0.958 |
+| logistic (nested, leak-free) | 0.4279 | 0.275 | 0.958 |
+
+**Delta (nested − standard) = −0.0123.**
+
+**Combined with pilot 1 (`acevedo0103`, delta +0.0237):**
+
+| Pilot | Outer fold | Delta |
+|---|---|---:|
+| 1 | `acevedo0103` | +0.0237 |
+| 2 | `magallanes0308` | −0.0123 |
+| Average | | ≈ +0.0057 |
+
+**Interpretation.** Two diagnostic folds with different inner splits show
+deltas within ±0.024 of zero. **This provides limited evidence against a
+large, consistently positive effect from the suspected leakage channel. It
+does not establish that leakage is negligible or rule it out as a contributor
+to the pooled +0.08 result.**
+
+The standard head had ~2–3× the training data in both pilots (440 vs 265,
+365 vs 130). If leakage were dominant, we would expect the standard head to
+show a clear advantage on at least one fold. It does not.
+
+**Caveats:**
+- Two folds with different inner splits. Not full nested CV.
+- Training-set size and location distribution are confounded with leakage.
+  A near-zero delta is consistent with "small leakage" OR "leakage offset by
+  training-size effects" OR "leakage fold-dependent."
+- Full nested CV across all 5 outer folds with 4 inner splits each is deferred.
+  **Revised cost estimate: 12–18h** on this hardware (15-epoch basis).
+- **The +0.08 remains "promising, not proven."** The pilot is diagnostic,
+  not validation.
+
+**Methodology note:** the pilot scripts are preserved at
+`scripts/diagnose_urbansas_nested_cv_acevedo.py` and
+`scripts/diagnose_urbansas_nested_cv_magallanes.py`. They record the exact
+configurations used and are not parameterized for arbitrary folds (re-running
+on a different fold requires editing the config block). They are diagnostic
+scripts, not part of the standard reproducibility pipeline.
+
+**Deliverables:**
+- Model card limitation #1 amended: `docs/model_cards/urbansas_fusion_v1.md`
+- This entry: `docs/experiments.md`
+- Diagnostic scripts renamed: `scripts/diagnose_urbansas_nested_cv_*.py`
+
+**Week 9c methodological state:**
+- ✅ Label semantics: audited; `-1` is ambiguous, documented.
+- ✅ Video's TAU signal: measured to be partly city-level, documented.
+- ⚠️ Logistic fusion leakage: two-fold pilot provides limited evidence
+  against a large leakage effect, but does not resolve the concern. Full
+  nested CV deferred (12–18h).
+
+Full nested CV remains a documented future-work item.

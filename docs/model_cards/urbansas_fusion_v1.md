@@ -185,20 +185,52 @@ collapse to near-zero predictions at threshold 0.5.
 
 ## Known limitations
 
-1. **Leakage concern for logistic fusion heads (most important).** The
-   fusion head's training probabilities for fold `L` come from base models
-   that were trained on location `L`'s training data in *other* folds. This
-   is a subtle leakage channel: base model M_A (held out on A, trained on
-   {L, B, C, D}) produces A's OOF probabilities. The fusion head for fold `L`
-   trains on A's probabilities. M_A saw L's labels. If M_A encoded any
-   L-specific signal into A's predictions, the fusion head inherits it, and
-   the outer LOLA structure no longer guarantees independence. **A fully
-   independent evaluation requires nested cross-validation** (retraining base
-   models 4× per outer fold to produce leak-free fusion-training probs). This
-   was not done — it would require ~20 hours of additional training. **The
-   logistic fusion results should be interpreted with this caveat.** The
-   zero-parameter fusion models (`mean`, `max`) are unaffected — they fit no
-   parameters and cannot leak.
+1. **Leakage concern for logistic fusion heads — investigated by two-fold diagnostic pilot.**
+   
+   The fusion head's training probabilities for fold `L` come from base models
+   that were trained on location `L`'s data in other folds. This is a subtle
+   leakage channel.
+   
+   **Two-fold diagnostic pilot (2026-10-27).** Each pilot retrained base models
+   on a leak-free inner split (different assignment per pilot) and trained a
+   fresh logistic head on the resulting probabilities, then evaluated on the
+   outer fold. Both pilots ran 15 epochs with the default `num_workers=4`:
+   
+   | Pilot | Outer fold | Standard head F1 | Nested head F1 | Delta |
+   |---|---|---|---|---|
+   | 1 | `acevedo0103` | 0.4948 | 0.5185 | **+0.0237** |
+   | 2 | `magallanes0308` | 0.4402 | 0.4279 | **−0.0123** |
+   | **Average** | | | | **≈ +0.0057** |
+   
+   The nested heads used substantially fewer training clips than the standard
+   heads (265 vs 440 in pilot 1; 130 vs 365 in pilot 2). The standard head had
+   ~2–3× the training data in both pilots.
+   
+   **Interpretation.** Two diagnostic folds with different inner splits show
+   deltas within ±0.024 of zero. **This provides limited evidence against a
+   large, consistently positive effect from the suspected leakage channel.
+   It does not establish that leakage is negligible, and it does not rule out
+   leakage as a contributor to the pooled +0.08 result.** The near-zero delta
+   is consistent with several possibilities:
+   
+   - Leakage is small.
+   - Leakage is real but offset by training-set-size effects.
+   - Leakage is fold-dependent (small on these two folds, possibly larger on
+     others).
+   
+   The comparison is further confounded by training-set size and location
+   distribution. **The two pilots are diagnostic folds, not independent
+   replications of the full experiment.**
+   
+   **Full nested CV remains future work.** Estimated cost: **12–18h** on this
+   hardware (15-epoch basis, from measured pilot runtimes). Not run.
+   
+   **The +0.08 pooled improvement should be read as "promising, not proven."**
+   The pilot provides diagnostic evidence, not validation. If the +0.08 ever
+   becomes a headline claim, full nested CV is the mandatory validation step.
+   
+   The zero-parameter fusion models (`mean`, `max`) are unaffected — they fit
+   no parameters and cannot leak.
 
 2. **Max fusion's MAVD improvement over video-only is marginal.** +0.007
    pooled F1 (0.4713 vs 0.4643). Bootstrap CI not computed for this pair, but
