@@ -37,7 +37,7 @@ import pandas as pd
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from torchvision.models.video import r2plus1d_18
+from torchvision.models.video import R2Plus1D_18_Weights, r2plus1d_18
 
 from urbanintel.config import urbansas_root
 from urbanintel.data.urbansas import (
@@ -89,21 +89,25 @@ def extract_audio_embeddings(df) -> tuple[np.ndarray, list[str]]:
     return emb, df["filename"].tolist()
 
 
-def extract_video_embeddings(df) -> tuple[np.ndarray, list[str]]:
-    ckpt_path = RESULTS_DIR / "urbansas_video_final.pt"
-    if not ckpt_path.exists():
-        raise FileNotFoundError(
-            f"Video training checkpoint not found at {ckpt_path}. "
-            "Run scripts/train_urbansas_video.py first."
-        )
-    print(f"Loading R(2+1)D-18 from {ckpt_path.name} ...")
-    ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
-    model = r2plus1d_18(weights=None)
-    # The saved checkpoint has fc = Linear(512, 2); load with that architecture
-    model.fc = nn.Linear(model.fc.in_features, 2)
-    model.load_state_dict(ckpt["model"])
-    # Replace fc with Identity AFTER loading — extracts 512-dim pooled features
-    model.fc = nn.Identity()
+def extract_video_embeddings(
+    df, encoder_variant: str = "fine_tuned"
+) -> tuple[np.ndarray, list[str]]:
+    if encoder_variant == "fine_tuned":
+        ckpt_path = RESULTS_DIR / "urbansas_video_final.pt"
+        print(f"Loading R(2+1)D-18 from {ckpt_path.name} ...")
+        ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        model = r2plus1d_18(weights=None)
+        model.fc = nn.Linear(model.fc.in_features, 2)
+        model.load_state_dict(ckpt["model"])
+        model.fc = nn.Identity()
+        out_suffix = ""
+    elif encoder_variant == "kinetics_only":
+        print(f"Loading fresh Kinetics-400 R(2+1)D-18 (leak-free) ...")
+        model = r2plus1d_18(weights=R2Plus1D_18_Weights.KINETICS400_V1)
+        model.fc = nn.Identity()
+        out_suffix = "_kinetics"
+    else:
+        raise ValueError(f"unknown encoder_variant: {encoder_variant}")
     model = model.to(DEVICE).eval()
     print(f"  encoder frozen, {sum(p.numel() for p in model.parameters()):,} params")
 
@@ -122,11 +126,27 @@ def extract_video_embeddings(df) -> tuple[np.ndarray, list[str]]:
 
     emb = np.concatenate(all_emb, axis=0).astype(np.float32)
     print(f"Video embeddings: {emb.shape}  ({time.time() - t0:.0f}s)")
+    np.save(RESULTS_DIR / f"video_embeddings{out_suffix}.npy", emb)
     return emb, df["filename"].tolist()
 
 
 def main():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--encoder-variant",
+        choices=["fine_tuned", "kinetics_only"],
+        default="fine_tuned",
+        help=(
+            "fine_tuned = use urbansas_video_final.pt (contaminated if MAVD-trained). "
+            "kinetics_only = use fresh Kinetics-400 R(2+1)D-18 (leak-free)."
+        ),
+    )
+    args = parser.parse_args()
+
     print(f"Device: {DEVICE}")
+    print(f"Encoder variant: {args.encoder_variant}")
     if DEVICE == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(0)}")
 
@@ -157,7 +177,7 @@ def main():
     print("\n" + "=" * 70)
     print("Extracting video embeddings (R(2+1)D-18)")
     print("=" * 70)
-    video_emb, video_fns = extract_video_embeddings(all_df)
+    video_emb, video_fns = extract_video_embeddings(all_df, encoder_variant=args.encoder_variant)
 
     # Strict alignment checks
     assert audio_fns == video_fns, "audio and video filename orders differ"
@@ -173,7 +193,8 @@ def main():
     video_oof = pd.read_csv(RESULTS_DIR / "urbansas_video_oof.csv")
     mavd_set = set(audio_oof["filename"])
     assert mavd_set == set(video_oof["filename"]), "OOF files don't align"
-    assert mavd_set.issubset(set(audio_fns)), "MAVD OOF fns missing from embeddings"
+    assert mavd_set.issubset(
+        set(audio_fns)), "MAVD OOF fns missing from embeddings"
     assert len(mavd_set) == 540
     print(f"\nAlignment with Week 9c prediction files: OK")
     print(f"  540 MAVD clips present in both embeddings and OOF")
@@ -182,7 +203,13 @@ def main():
     # Save
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     np.save(RESULTS_DIR / "audio_embeddings.npy", audio_emb)
-    np.save(RESULTS_DIR / "video_embeddings.npy", video_emb)
+    video_out = (
+        "video_embeddings.npy"
+        if args.encoder_variant == "fine_tuned"
+        else "video_embeddings_kinetics.npy"
+    )
+    np.save(RESULTS_DIR / video_out, video_emb)
+    print(f"  Saved video to: {video_out}")
     with open(RESULTS_DIR / "embedding_filenames.txt", "w") as f:
         f.write("\n".join(audio_fns))
 
@@ -199,9 +226,18 @@ def main():
             "pooling": "mean over last_hidden_state tokens",
         },
         "video_encoder": {
-            "checkpoint": "data/urbansas_results/urbansas_video_final.pt",
+            "checkpoint": (
+                "data/urbansas_results/urbansas_video_final.pt"
+                if args.encoder_variant == "fine_tuned"
+                else "torchvision Kinetics-400 pretrained (fresh, not fine-tuned on Urbansas)"
+            ),
             "base_architecture": "torchvision.models.video.r2plus1d_18 (Kinetics-400)",
-            "finetuned_on": "Urbansas MAVD (Week 9c)",
+            "finetuned_on": (
+                "Urbansas MAVD (Week 9c)"
+                if args.encoder_variant == "fine_tuned"
+                else "not fine-tuned — fresh Kinetics weights (leak-free)"
+            ),
+            "encoder_variant": args.encoder_variant,
             "head_discarded": True,
             "embedding_dim": 512,
             "pooling": "built-in global avg pool before fc",
