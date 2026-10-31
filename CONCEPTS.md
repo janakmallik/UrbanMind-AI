@@ -10,3 +10,20 @@ In this experiment, **extracting** means passing all 1,080 Urbansas audio and vi
 **Why extract now?** In Week 9c, it combined the final audio and video probabilities. That experiment used only two numbers per clip, so much of the information in the original representations was already compressed. Now, in Milestone C, it want to combine the richer internal representations instead. it therefore need to extract and save those embeddings before training the new fusion MLP. Once extracted, C2/(next week's work) can train and evaluate fusion models using the saved vectors instead of repeatedly running the large audio and video networks.
 
 **The distinction is:** it's not extracting the models themselves, and it's not extracting their weights. it's extracting the numerical feature representations they produce when they process this Urbansas clips. The encoders are frozen because it want those representations to remain unchanged while it investigate whether a new trainable MLP can combine them more effectively.
+
+---
+
+**Systematically offset:** Audio and video embeddings have different value distributions. Audio embeddings are centered near zero (mean 0.0185), while video embeddings have a positive mean (0.7062). This means the video features are systematically shifted relative to the audio features. Standardization helps bring each feature to a comparable scale by centering it around zero and scaling it to unit variance.
+
+**LOLA folds:** Leave-One-Location-Out is an evaluation method where the model is trained on four locations and tested on the fifth, repeating this process until every location has been held out once. This tests whether the model can generalize to an entirely unseen location rather than simply recognize patterns from locations it has already encountered.
+
+**Per-fold:** This means performing an operation separately within each evaluation fold. For example, the StandardScaler is fitted using only the four training locations, then applied to both training and test data. This prevents information from the held-out location from leaking into the training process.
+
+**Audio-only MLP vs. Feature-fusion MLP:** The audio-only MLP takes 768 audio features as input, passes them through a 256-neuron hidden layer, and predicts two classes. The feature-fusion MLP takes 1,280 combined audio and video features (768 + 512), uses the same 256-neuron hidden layer, and predicts the same two classes. Comparing them helps determine whether adding video features improves performance beyond what a trainable audio-only model can achieve.
+
+**Why the control matters:** The audio-only MLP is the control experiment, while the feature-fusion MLP is the multimodal experiment. If feature fusion performs better than the audio-only MLP, it provides evidence that video contributes useful complementary information. If both perform similarly, the addition of video has not demonstrated a meaningful improvement.
+
+
+---
+nvidia-smi --query-gpu=memory.used,utilization.gpu --format=csv,noheader -l 2
+UrbanMind-AI

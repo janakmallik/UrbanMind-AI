@@ -1837,3 +1837,156 @@ testing fusion with only one audio baseline.
 
 ---
 
+## 2026-10-31 — Week 9c-ext-2: Feature-level fusion (C2b, honest re-run)
+
+**Hypothesis:** Feature-level fusion of frozen pretrained audio and video
+embeddings improves offscreen-vehicle detection beyond either modality
+alone, or beyond Week 9c's probability-level late fusion.
+
+**Setup:**
+
+- **Audio embeddings**: 768-dim AST encoder (mean-pooled), from
+  `audio_pretrained_final.pt`. Verified identical to AudioSet-pretrained
+  encoder (0 mismatches, max diff 0.0) — leak-free.
+- **Video embeddings**: 512-dim R(2+1)D-18 (fc replaced by Identity).
+  **C2b uses fresh Kinetics-400 weights**, never fine-tuned on Urbansas.
+  (C2, the initial run, used a fine-tuned encoder; see "C2 contamination"
+  below.)
+- **Three MLPs**, all hidden=256, dropout=0.3:
+  audio-only (768→256→2), video-only (512→256→2),
+  feature-fusion (1280→256→2).
+- **Protocol**: 5-fold LOLA on MAVD. Per-fold `StandardScaler` fit on
+  4 training locations only. 20 fixed epochs. Per-epoch train loss
+  logged. Test-fold metrics computed once per fold.
+- **TAU external**: train on all 540 MAVD, evaluate on 540 TAU.
+- **Deterministic seeds**: 42 + fold_idx per fold, 142 for final model,
+  `cudnn.deterministic=True`, `cudnn.benchmark=False`.
+
+**Result — MAVD pooled OOF (C2b):**
+
+| Model | F1@0.5 | P | R | ROC-AUC | AP | Brier |
+|---|---:|---:|---:|---:|---:|---:|
+| Audio-only MLP | 0.3956 | 0.4000 | 0.3913 | **0.7042** | **0.4334** | **0.2240** |
+| Video-only MLP | 0.3862 | 0.3206 | 0.4855 | 0.5788 | 0.3154 | 0.2996 |
+| Feature fusion | **0.4079** | 0.3349 | **0.5217** | 0.6605 | 0.3899 | 0.2959 |
+
+**Bootstrap CIs on F1 difference (feature fusion vs baseline):**
+
+- vs audio-only, clip level: +0.0132, 95% CI [−0.0605, +0.0884]
+- vs audio-only, location level: −0.0026, 95% CI [−0.0836, +0.0482]
+- vs video-only, clip level: +0.0217, 95% CI [−0.0241, +0.0705]
+- vs video-only, location level: +0.0346, 95% CI [+0.0116, +0.1050]
+
+**Result — TAU external:**
+
+| Model | F1 | ROC-AUC | AP |
+|---|---:|---:|---:|
+| Audio-only | 0.2848 | 0.6059 | 0.2321 |
+| Video-only | 0.2890 | 0.5776 | 0.1947 |
+| Feature fusion | **0.3154** | **0.6158** | **0.2656** |
+
+**Location-dependent prediction behavior (central finding):**
+
+Video-only MLP's predicted positive rate varied dramatically across
+held-out MAVD locations:
+
+| Location | Actual pos rate | Video pos rate | Audio pos rate | Fusion pos rate |
+|---|---:|---:|---:|---:|
+| `acevedo0103` | 32.0% | 21.0% | 41.0% | 26.0% |
+| `magallanes0308` | 27.4% | **93.7%** | 18.9% | 86.3% |
+| `rivera0922` | 6.7% | 6.7% | 16.7% | 0.0% |
+| `rivera0923` | 19.3% | 15.2% | 13.1% | 9.7% |
+| `templete0103` | 31.1% | **0.0%** | 41.1% | 26.7% |
+
+**At `magallanes0308`, the video MLP predicts positive for 94% of
+clips; at `templete0103`, 0%.** Actual positive rates are similar
+(27.4% and 31.1%). Because the held-out location was excluded from the
+training fold, **this is not direct memorization** — it is evidence of
+**location-dependent shortcut behavior and cross-location generalization
+failure**, consistent with scene-context features being used as a proxy
+for the target label. The same scene-context shortcut was documented in
+Week 9c's video classifier (55% of high-confidence false positives on
+`only_visible` clips). The embedding inherits this.
+
+**Key findings:**
+
+1. **Feature fusion at MAVD is not a statistically conclusive improvement.**
+   F1 +0.0123 (clip-level CI includes zero). Location-level bootstrap is
+   negative mean (−0.0026). Audio-only MLP is the honest baseline.
+
+2. **Audio-only wins on threshold-independent metrics.** ROC-AUC (0.7042
+   vs 0.6605), AP (0.4334 vs 0.3899), Brier (0.2240 vs 0.2959). Fusion's
+   higher F1 at threshold 0.5 reflects a higher predicted positive rate
+   (0.398 vs 0.250), not better ranking.
+
+3. **Video-only MLP exhibits location-dependent prediction shifts.**
+   Predicted positive rate varies 0% to 94% across MAVD locations with
+   actual base rates 6.7% to 32.0%. This is the strongest evidence of
+   scene-context shortcut learning in the video representation.
+
+4. **TAU external is weak for all three models.** Fusion leads on
+   F1/AUC/AP, but the margins are small (+0.031 F1, +0.010 AUC, +0.034
+   AP vs audio) and no bootstrap CI was computed. All three models
+   over-predict on TAU (pos rates 37–50% vs actual 15%).
+
+5. **Parameter count caveat.** Feature fusion has 328K params vs
+   audio-only's 197K (66% more). Any advantage is confounded with
+   capacity.
+
+**C2 contamination (documented for reproducibility):**
+
+The initial C2 run used video embeddings from `urbansas_video_final.pt`,
+which was the Phase 2 model in Week 9c trained on **all 540 MAVD clips**.
+The 5-fold LOLA evaluation therefore did not measure generalization to
+unseen locations — the encoder had seen every location. Video-only MLP
+got MAVD F1 0.9065, which reflects encoder-level leakage.
+
+Verification: AST encoder compared to AudioSet-pretrained — 0 mismatches
+(leak-free). Video encoder compared to Kinetics-pretrained — 222
+backbone mismatches (fine-tuned). Both checks were run before C2b.
+
+C2's TAU F1 (0.1538) is honest — TAU was never used in training. Only
+C2b is used for MAVD claims. C2's artifacts preserved at
+`feature_fusion_oof.csv`, `feature_fusion_results.json`,
+`video_embeddings.npy`.
+
+**Limitations:**
+
+- Only one seed per fold. Multi-seed stability not assessed.
+- Location-level bootstrap with 5 clusters is exploratory.
+- TAU F1 improvement has no bootstrap CI (single evaluation).
+- Scene-context shortcut hypothesis not tested directly (e.g., against
+  a location-only or scene-metadata baseline).
+- Fold-specific fine-tuned video embeddings not attempted — deferred.
+
+**Deliverables:**
+
+- Model card: `docs/model_cards/urbansas_feature_fusion_v1.md`
+- Extraction script: `scripts/extract_urbansas_embeddings.py`
+- Training script: `scripts/train_urbansas_feature_fusion.py`
+- Raw OOF: `data/urbansas_results/feature_fusion_oof_kinetics.csv`
+- TAU external: `data/urbansas_results/feature_fusion_tau_external_kinetics.csv`
+- Results: `data/urbansas_results/feature_fusion_results_kinetics.json`
+- Metadata: `data/urbansas_results/feature_fusion_metadata_kinetics.json`
+- Preserved C2 artifacts (contaminated, for reproducibility documentation)
+
+**Week 9c feature-fusion conclusion:**
+
+Feature-level fusion of frozen pretrained audio and video embeddings
+does not demonstrate a conclusive MAVD improvement over audio-only under
+this protocol (Δ F1 +0.0123, 95% CI includes zero; audio wins on
+ROC-AUC, AP, Brier). The video-only MLP exhibits substantial
+location-dependent prediction behavior (0% to 94% positive rate across
+locations with similar base rates), consistent with scene-context
+shortcut learning inherited from the Week 9c video classifier. TAU
+external results are weak for all three models; fusion leads directionally
+but not conclusively.
+
+**This is a documented negative result.** Feature fusion is not a
+solution to the video model's shortcut problem. Future work should test
+fold-specific fine-tuned video embeddings and cross-attention, but not
+before establishing whether scene-context shortcut behavior can be
+mitigated at the embedding level.
+
+---
+

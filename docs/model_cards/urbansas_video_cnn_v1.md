@@ -189,6 +189,21 @@ signatures.
    limitation #1 above); false positives on `empty` should not be treated
    the same as false positives on `only_visible`.
 
+   **Extended evidence from Week 9c-ext-2 (feature fusion):** The
+   scene-context shortcut documented here is not resolved by feature-level
+   fusion. When frozen video embeddings (Kinetics-only, never fine-tuned
+   on Urbansas) are used as MLP inputs, the model's predicted positive
+   rate varies from 0% to 94% across held-out MAVD locations — despite
+   similar actual positive rates (6.7% to 32.0%). At `magallanes0308`,
+   the video MLP predicts positive for 94% of clips; at `templete0103`,
+   0%. Because the held-out location is excluded from the training fold,
+   this is not direct memorization — it is location-dependent shortcut
+   behavior that the embedding inherits. See
+   `docs/model_cards/urbansas_feature_fusion_v1.md` and the 9c-ext-2
+   experiments entry for the full analysis. The two experiments share
+   the same underlying failure mode (scene-context vs offscreen detection),
+   though neither experiment isolates the exact mechanism.
+
 3. **Per-location transfer is bimodal and unexplained.** 0.501 on
    `magallanes0308` vs 0.721 on `templete0103`. Cause not identified. Similar
    to audio's bimodality, but at different locations.
