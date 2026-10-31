@@ -111,6 +111,7 @@ not calendar weeks — they are units of shippable work.
 | 9b | Cross-modal fusion (attempted) | 311 tabular+text rejected — descriptor is categorical lookup | documented |
 | 9c (audit) | Week 9c label + evaluation audit | `-1` sentinel ambiguous; video's TAU signal partly city-level; nested-CV pilot shows leakage not dominant | `v0.9.11-week9c-audit` |
 | 9c-ext-1 | Pretrained AST audio + fusion sensitivity | AST MAVD F1 0.4673 (+27% over from-scratch); TAU ROC-AUC identical to from-scratch (threshold artifact); fusion does not help when audio is strong | `v0.9.13-week9c-pretrained-audio` |
+| 9c-ext-2 | Feature-level fusion (AST + Kinetics-only video embeddings) | Fusion F1 0.4079 vs audio 0.3956 (CI includes zero); audio wins on ROC-AUC/AP/Brier; video shows location-dependent shortcut behavior | `v0.9.14-week9c-feature-fusion` |
 | 11 | Generative models (VAE / diffusion) | Not started | — |
 | 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |
 
