@@ -153,6 +153,18 @@ def _extract_location(filename: str) -> str:
     return matches[0]
 
 
+def _extract_video_id(filename: str) -> str:
+    """MAVD filename is {location}_{run:02d}_{clip:02d}.
+
+    The source video ID is {location}_{run:02d} — clips from the same
+    video share it. Used for video-level cluster bootstrap.
+    """
+    parts = filename.split("_")
+    if len(parts) >= 3:
+        return f"{parts[0]}_{parts[1]}"
+    return filename  # fallback for unexpected filename format
+
+
 # --- Correction 2: alignment validation ---
 
 
@@ -308,7 +320,7 @@ def _high_low_gap(y: np.ndarray, p: np.ndarray) -> dict:
 # --- Bootstrap (audit correction #6) ---
 
 
-def _bootstrap_gap_ci(y, p, locations, n_boot=1000, seed=42):
+def _bootstrap_gap_ci(y, p, locations, video_ids=None, n_boot=1000, seed=42):
     rng = np.random.default_rng(seed)
     pred_class = (p >= 0.5).astype(int)
     confidence = np.maximum(p, 1.0 - p)
@@ -381,6 +393,39 @@ def _bootstrap_gap_ci(y, p, locations, n_boot=1000, seed=42):
                 "n_valid_bootstraps": int(len(gaps_loc)),
                 "n_boot_requested": int(n_boot),
                 "label": "location-level (EXPLORATORY — only 5 clusters)",
+                "reason": None,
+            }
+
+    # Video-level (if provided) — clusters of clips from same source video
+    if video_ids is not None:
+        uniq_vids = np.unique(video_ids)
+        vid_idx = {v: np.where(video_ids == v)[0] for v in uniq_vids}
+        gaps_vid = []
+        for _ in range(n_boot):
+            chosen = rng.choice(uniq_vids, size=len(uniq_vids), replace=True)
+            idx = np.concatenate([vid_idx[v] for v in chosen])
+            g = gap_from_idx(idx)
+            if g is not None:
+                gaps_vid.append(g)
+        if len(gaps_vid) < 0.9 * n_boot:
+            results["video_level"] = {
+                "mean": None,
+                "ci_low": None,
+                "ci_high": None,
+                "n_valid_bootstraps": int(len(gaps_vid)),
+                "n_boot_requested": int(n_boot),
+                "label": "video-level (clusters of clips from same source video; assumes independence between videos)",
+                "reason": "insufficient valid bootstraps",
+            }
+        else:
+            gaps_vid_arr = np.array(gaps_vid)
+            results["video_level"] = {
+                "mean": float(gaps_vid_arr.mean()),
+                "ci_low": float(np.percentile(gaps_vid_arr, 2.5)),
+                "ci_high": float(np.percentile(gaps_vid_arr, 97.5)),
+                "n_valid_bootstraps": int(len(gaps_vid)),
+                "n_boot_requested": int(n_boot),
+                "label": "video-level (clusters of clips from same source video; assumes independence between videos)",
                 "reason": None,
             }
 
@@ -511,11 +556,11 @@ def _plot_risk_coverage(rc: dict, title: str, out_path: Path):
 # --- Analysis driver ---
 
 
-def _analyze_model(name, y, p, locations, dataset, variant, fns):
+def _analyze_model(name, y, p, locations, dataset, variant, fns, video_ids=None):
     """Compute all confidence-usefulness metrics for one (model, dataset, variant)."""
     bins = _bin_accuracy_by_confidence(y, p)
     gap = _high_low_gap(y, p)
-    ci = _bootstrap_gap_ci(y, p, locations)
+    ci = _bootstrap_gap_ci(y, p, locations, video_ids=video_ids)
     rc = _risk_coverage(y, p)
 
     _plot_confidence(
@@ -590,7 +635,8 @@ def main():
     if not w10_2:
         print(
             "WARNING: calibration_temperature_results.json missing — calibrated "
-            "variant will be skipped")
+            "variant will be skipped"
+        )
 
     mavd_results, tau_results = [], []
 
@@ -613,19 +659,33 @@ def main():
             continue
 
         # Raw
-        raw = _analyze_model(name, y, p, locations, "mavd", "raw", fns)
+        # Extract video IDs for MAVD (from filenames)
+        video_ids = np.array([_extract_video_id(fn) for fn in fns])
+        raw = _analyze_model(name, y, p, locations, "mavd", "raw", fns, video_ids=video_ids)
         mavd_results.append(raw)
         g = raw["high_vs_low_gap"]
         ci_clip = raw["gap_bootstrap_ci"].get("clip_level", {})
         gap_str = f"{g['gap']:+.3f}" if g["gap"] is not None else "n/a"
-        ci_str = (f"[{ci_clip['ci_low']:+.3f}, {ci_clip['ci_high']:+.3f}]"
-                  if ci_clip.get("ci_low") is not None
-                  and ci_clip.get("ci_high") is not None else "n/a")
-        print(f"    raw:  mean_conf={raw['mean_confidence']:.3f}  "
-              f"gap={gap_str}  "
-              f"CI_clip={ci_str}  "
-              f"(n_high={g['n_high']}, n_low={g['n_low']}, "
-              f"reliable={g.get('gap_reliable')})")
+        ci_clip = raw["gap_bootstrap_ci"].get("clip_level", {})
+        ci_vid = raw["gap_bootstrap_ci"].get("video_level", {})
+        ci_str = (
+            f"[{ci_clip['ci_low']:+.3f}, {ci_clip['ci_high']:+.3f}]"
+            if ci_clip.get("ci_low") is not None and ci_clip.get("ci_high") is not None
+            else "n/a"
+        )
+        ci_vid_str = (
+            f"[{ci_vid['ci_low']:+.3f}, {ci_vid['ci_high']:+.3f}]"
+            if ci_vid.get("ci_low") is not None and ci_vid.get("ci_high") is not None
+            else "n/a"
+        )
+        print(
+            f"    raw:  mean_conf={raw['mean_confidence']:.3f}  "
+            f"gap={gap_str}  "
+            f"CI_clip={ci_str}  "
+            f"CI_video={ci_vid_str}  "
+            f"(n_high={g['n_high']}, n_low={g['n_low']}, "
+            f"reliable={g.get('gap_reliable')})"
+        )
 
         # Calibrated (if per-fold T available)
         fold_t = _build_fold_t_map(w10_2, name)
@@ -636,29 +696,40 @@ def main():
                     print(f"    WARNING: no temperature for {loc}, using raw")
                     p_cal[locations == loc] = p[locations == loc]
                     continue
-                p_cal[locations == loc] = _apply_temperature(
-                    p[locations == loc], fold_t[loc])
-            cal = _analyze_model(name, y, p_cal, locations, "mavd",
-                                 "calibrated", fns)
+                p_cal[locations == loc] = _apply_temperature(p[locations == loc], fold_t[loc])
+            cal = _analyze_model(
+                name, y, p_cal, locations, "mavd", "calibrated", fns, video_ids=video_ids
+            )
 
             # Risk-coverage invariance check (temperature scaling is monotonic)
-            rc_comparison = _compare_risk_coverage(raw["risk_coverage"],
-                                                   cal["risk_coverage"])
+            rc_comparison = _compare_risk_coverage(raw["risk_coverage"], cal["risk_coverage"])
             raw["risk_coverage_raw_vs_calibrated"] = rc_comparison
             cal["risk_coverage_raw_vs_calibrated"] = rc_comparison
 
             mavd_results.append(cal)
             g_cal = cal["high_vs_low_gap"]
             ci_cal = cal["gap_bootstrap_ci"].get("clip_level", {})
-            gap_str_cal = f"{g_cal['gap']:+.3f}" if g_cal[
-                "gap"] is not None else "n/a"
-            ci_str = (f"[{ci_cal['ci_low']:+.3f}, {ci_cal['ci_high']:+.3f}]"
-                      if ci_cal.get("ci_low") is not None else "n/a")
-            print(f"    cal:  mean_conf={cal['mean_confidence']:.3f}  "
-                  f"gap={gap_str_cal}  "
-                  f"CI_clip={ci_str}  "
-                  f"(n_high={g_cal['n_high']}, n_low={g_cal['n_low']}, "
-                  f"reliable={g_cal.get('gap_reliable')})")
+            gap_str_cal = f"{g_cal['gap']:+.3f}" if g_cal["gap"] is not None else "n/a"
+            ci_cal = cal["gap_bootstrap_ci"].get("clip_level", {})
+            ci_vid_cal = cal["gap_bootstrap_ci"].get("video_level", {})
+            ci_str = (
+                f"[{ci_cal['ci_low']:+.3f}, {ci_cal['ci_high']:+.3f}]"
+                if ci_cal.get("ci_low") is not None
+                else "n/a"
+            )
+            ci_vid_str_cal = (
+                f"[{ci_vid_cal['ci_low']:+.3f}, {ci_vid_cal['ci_high']:+.3f}]"
+                if ci_vid_cal.get("ci_low") is not None
+                else "n/a"
+            )
+            print(
+                f"    cal:  mean_conf={cal['mean_confidence']:.3f}  "
+                f"gap={gap_str_cal}  "
+                f"CI_clip={ci_str}  "
+                f"CI_video={ci_vid_str_cal}  "
+                f"(n_high={g_cal['n_high']}, n_low={g_cal['n_low']}, "
+                f"reliable={g_cal.get('gap_reliable')})"
+            )
             if rc_comparison:
                 print(
                     f"    risk-coverage diagnostic (fold-specific calibration ranking): "
@@ -669,11 +740,10 @@ def main():
                 if not rc_comparison.get("curves_equivalent"):
                     print(
                         f"      (MAVD uses per-fold temperatures — cross-fold "
-                        f"ranking can change; not a bug)")
+                        f"ranking can change; not a bug)"
+                    )
         else:
-            print(
-                f"    calibrated: skipped (no W10.2 per-fold T for this model)"
-            )
+            print(f"    calibrated: skipped (no W10.2 per-fold T for this model)")
 
     print("\n=== TAU (all honest) ===")
     for name, path, col in TAU_MODELS:
@@ -695,40 +765,45 @@ def main():
         g = raw["high_vs_low_gap"]
         ci_clip = raw["gap_bootstrap_ci"].get("clip_level", {})
         gap_str = f"{g['gap']:+.3f}" if g["gap"] is not None else "n/a"
-        ci_str = (f"[{ci_clip['ci_low']:+.3f}, {ci_clip['ci_high']:+.3f}]"
-                  if ci_clip.get("ci_low") is not None
-                  and ci_clip.get("ci_high") is not None else "n/a")
-        print(f"    raw:  mean_conf={raw['mean_confidence']:.3f}  "
-              f"gap={gap_str}  "
-              f"CI_clip={ci_str}  "
-              f"(n_high={g['n_high']}, n_low={g['n_low']}, "
-              f"reliable={g.get('gap_reliable')})")
+        ci_str = (
+            f"[{ci_clip['ci_low']:+.3f}, {ci_clip['ci_high']:+.3f}]"
+            if ci_clip.get("ci_low") is not None and ci_clip.get("ci_high") is not None
+            else "n/a"
+        )
+        print(
+            f"    raw:  mean_conf={raw['mean_confidence']:.3f}  "
+            f"gap={gap_str}  "
+            f"CI_clip={ci_str}  "
+            f"(n_high={g['n_high']}, n_low={g['n_low']}, "
+            f"reliable={g.get('gap_reliable')})"
+        )
 
         tau_t = _build_tau_t(w10_2, name)
         if tau_t is not None:
             p_cal = _apply_temperature(p, tau_t)
-            cal = _analyze_model(name, y, p_cal, None, "tau", "calibrated",
-                                 fns)
+            cal = _analyze_model(name, y, p_cal, None, "tau", "calibrated", fns)
 
             # Risk-coverage invariance check (temperature scaling is monotonic)
-            rc_comparison = _compare_risk_coverage(raw["risk_coverage"],
-                                                   cal["risk_coverage"])
+            rc_comparison = _compare_risk_coverage(raw["risk_coverage"], cal["risk_coverage"])
             raw["risk_coverage_raw_vs_calibrated"] = rc_comparison
             cal["risk_coverage_raw_vs_calibrated"] = rc_comparison
 
             tau_results.append(cal)
             g_cal = cal["high_vs_low_gap"]
             ci_cal = cal["gap_bootstrap_ci"].get("clip_level", {})
-            gap_str_cal = f"{g_cal['gap']:+.3f}" if g_cal[
-                "gap"] is not None else "n/a"
-            ci_str = (f"[{ci_cal['ci_low']:+.3f}, {ci_cal['ci_high']:+.3f}]"
-                      if ci_cal.get("ci_low") is not None else "n/a")
+            gap_str_cal = f"{g_cal['gap']:+.3f}" if g_cal["gap"] is not None else "n/a"
+            ci_str = (
+                f"[{ci_cal['ci_low']:+.3f}, {ci_cal['ci_high']:+.3f}]"
+                if ci_cal.get("ci_low") is not None
+                else "n/a"
+            )
             print(
                 f"    cal:  mean_conf={cal['mean_confidence']:.3f}  "
                 f"gap={gap_str_cal}  "
                 f"CI_clip={ci_str}  "
                 f"(T={tau_t:.3f}, n_high={g_cal['n_high']}, n_low={g_cal['n_low']}, "
-                f"reliable={g_cal.get('gap_reliable')})")
+                f"reliable={g_cal.get('gap_reliable')})"
+            )
             if rc_comparison:
                 print(
                     f"    risk-coverage diagnostic (single-temperature ranking): "
@@ -737,9 +812,7 @@ def main():
                     f"equivalent={rc_comparison.get('curves_equivalent')}"
                 )
         else:
-            print(
-                f"    calibrated: skipped (no W10.2 TAU transfer T for this model)"
-            )
+            print(f"    calibrated: skipped (no W10.2 TAU transfer T for this model)")
 
     out = {
         "mavd": mavd_results,
@@ -796,11 +869,9 @@ def main():
     }
     out_path = RESULTS_DIR / "confidence_analysis.json"
     with open(out_path, "w") as f:
-        json.dump(out,
-                  f,
-                  indent=2,
-                  default=lambda o: None
-                  if isinstance(o, float) and o != o else str(o))
+        json.dump(
+            out, f, indent=2, default=lambda o: None if isinstance(o, float) and o != o else str(o)
+        )
     print(f"\nSaved: {out_path}")
     print(f"Plots: {PLOTS_DIR}")
     total_plots = len([1 for _ in PLOTS_DIR.glob("*.png")])
