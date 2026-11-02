@@ -36,9 +36,11 @@ Week 10 — Calibration and confidence usefulness on Urbansas models.
   plus weak discrimination; not fixable by monotone probability scaling.
 - AST audio's TAU failure is a **discrimination failure** (ROC-AUC 0.557 near
   chance), not a calibration failure.
-- Three statistically-supported confidence-usefulness findings (n_high ≥ 20,
-  CIs exclude zero at clip and video level): `feature_fusion_audio_only` MAVD
-  raw (+0.387) and calibrated (+0.353); `video_finetuned` TAU raw (+0.333).
+- Statistically-supported confidence-usefulness findings (n_high ≥ 20):
+  `feature_fusion_audio_only` MAVD raw (+0.387) and calibrated (+0.353), both
+  with clip-level and video-level CIs excluding zero; `video_finetuned` TAU
+  raw (+0.333), clip-level CI excludes zero but **no video-level bootstrap
+  applies** (TAU has no source-video grouping).
 - Only `feature_fusion_audio_only` MAVD satisfies all three properties
   simultaneously after temperature scaling: ECE 0.107, ROC-AUC 0.704,
   confidence gap +0.353 (n_high=59).

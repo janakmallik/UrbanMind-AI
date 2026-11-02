@@ -2021,7 +2021,11 @@ Confidence usefulness (three reliable signals, n_high ≥ 20, CIs exclude zero a
 
 Takeaway:
 
-The three properties are independent and arranged differently across models. **Calibration ≠ discrimination** — `ast_audio` is best-calibrated on MAVD (ECE 0.158) but `feature_fusion_audio_only` discriminates best (ROC-AUC 0.704). **Calibration ≠ confidence usefulness** — `ast_audio`'s apparent confidence gap (+0.412) is a single high-confidence clip. Only `feature_fusion_audio_only` on MAVD satisfies all three at once after temperature scaling: ECE 0.107, ROC-AUC 0.704, confidence gap +0.353 with n_high=59. That model is the deployment candidate on the three-property intersection.
+The three properties are independent and arranged differently across models. **Calibration ≠ discrimination** — `ast_audio` is best-calibrated on MAVD (ECE 0.158) but `feature_fusion_audio_only` discriminates best (ROC-AUC 0.704). **Calibration ≠ confidence usefulness** — `ast_audio`'s apparent confidence gap (+0.412) is a single high-confidence clip. Only `feature_fusion_audio_only` on MAVD satisfies all three at once after
+temperature scaling: ECE 0.107, ROC-AUC 0.704, confidence gap +0.353 with
+n_high=59. That model is the deployment candidate **on the MAVD
+three-property evaluation only**; its weak TAU transfer prevents a broader
+claim.
 
 The MAVD-fit temperature does not transfer to TAU. The residual TAU miscalibration is base-rate shift plus weak discrimination, not something monotone probability scaling can fix. `ast_audio`'s near-chance TAU ROC-AUC (0.557) is a **discrimination failure**, not a calibration failure.
 

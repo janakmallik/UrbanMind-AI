@@ -127,7 +127,10 @@ Only three model/dataset combinations have gaps that are **both reliable** (n_hi
 | **feature_fusion_audio_only MAVD** | calibrated | +0.353 | 59 | 263 | [+0.242, +0.447] | [+0.220, +0.462] |
 | **video_finetuned TAU** | raw | +0.333 | 363 | 87 | [+0.222, +0.448] | — (no MAVD video IDs) |
 
-**The two CIs agree** (clip-level and video-level). The signals are robust to clustering. The signs do not flip.
+**For the two MAVD findings**, the clip-level and video-level CIs agree;
+the signals are robust to clustering; the signs do not flip. **The TAU
+`video_finetuned` finding has clip-level evidence only** — TAU has no
+source-video grouping, so no video-level bootstrap applies.
 
 ### The confidence-usefulness answer
 
@@ -174,7 +177,10 @@ Several apparent "confidence signals" are artifacts of small high-confidence gro
 - Well-discriminating (ROC-AUC ≥ 0.70)
 - Usefully confident (reliable gap ≥ 0.30, CI excludes zero, n_high ≥ 20)
 
-**That model is `feature_fusion_audio_only` on MAVD after temperature scaling.** This is the deployment candidate on the three-property intersection.
+**That model is `feature_fusion_audio_only` on MAVD after temperature
+scaling.** It is the deployment candidate **on the MAVD three-property
+evaluation only**. Its weak TAU transfer (F1 0.3154, ROC-AUC 0.6158,
+AP 0.2656) prevents a broader deployment claim.
 
 ## The complete three-property table
 
