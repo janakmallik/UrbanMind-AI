@@ -1990,3 +1990,72 @@ mitigated at the embedding level.
 
 ---
 
+## 2026-11-02 — Week 10: Calibration and confidence usefulness on Urbansas models
+
+Hypothesis: The Week 9c classifiers should be evaluated on three independent reliability properties — probability calibration, discrimination, and confidence usefulness — and these properties may not agree across models. Temperature scaling should improve calibration where overconfidence exists, without changing discrimination. Whether a model's confidence is *useful* (i.e., high-confidence predictions are more often correct than low-confidence ones) is a separate question from whether the probabilities are well-calibrated.
+
+Setup:
+
+- Models evaluated: 4 honest MAVD models (`ast_audio`, `feature_fusion_mlp`, `feature_fusion_audio_only`, `feature_fusion_video_only`) and 6 honest TAU models (above 4 + `video_finetuned` + `late_fusion_fromscratch`). **Provenance exclusions** — `video_finetuned` (encoder fine-tuned on all 540 MAVD), `late_fusion_fromscratch` and `late_fusion_ast` (contaminated video input) — excluded from MAVD calibration/confidence analysis. Their TAU results are honest and reported.
+- W10.1 — `scripts/evaluate_calibration.py`: ECE (adaptive bins), Brier, log loss, ROC-AUC, AP, reliability diagrams.
+- W10.2 — `scripts/calibrate_with_temperature.py`: leakage-safe temperature scaling. For each MAVD fold: fit T on the 4 training folds' OOF, apply to the held-out fold. For TAU: fit T on all MAVD OOF, apply to TAU. Never fit on TAU labels.
+- W10.3 — `scripts/analyze_confidence.py`: `confidence = max(p, 1-p)`, `predicted_class = (p >= 0.5)`, per-bin accuracy, high-vs-low gap, bootstrap CIs at clip, location, and video level (video-level added in W10.3.2).
+- MLflow: no new runs (read-only analysis of 9c predictions; W10.2 fits a single scalar per fold).
+
+Result:
+
+MAVD calibration (4 honest models):
+
+| Model | ECE | Brier | ROC-AUC | AP |
+|---|---:|---:|---:|---:|
+| ast_audio | **0.158** | **0.204** | 0.680 | 0.393 |
+| feature_fusion_audio_only | 0.201 | 0.224 | **0.704** | **0.433** |
+| feature_fusion_video_only | 0.274 | 0.300 | 0.579 | 0.315 |
+| feature_fusion_mlp | 0.280 | 0.296 | 0.661 | 0.390 |
+
+TAU calibration (6 honest models): `video_finetuned` best-calibrated (ECE 0.110, but provenance-contaminated on MAVD); all other models ECE 0.32–0.38. `late_fusion_ast` TAU file missing — documented, not regenerated.
+
+Temperature scaling (MAVD): `feature_fusion_audio_only` improved most (ECE 0.201 → 0.107, T ≈ 3.65). `ast_audio` barely moved (T ≈ 0.87, already well-calibrated). MLPs were overconfident (T ≈ 4–6) and gained substantially. TAU transfer: all models improve by only 0.003–0.030 ECE — MAVD-fit temperature does not transfer (base-rate shift from 25.6% → 15.0%).
+
+Confidence usefulness (three reliable signals, n_high ≥ 20, CIs exclude zero at both clip and video level): `feature_fusion_audio_only` MAVD raw gap +0.387, calibrated +0.353; `video_finetuned` TAU raw gap +0.333. Several apparent signals refuted as small-sample artifacts (e.g., `ast_audio` MAVD raw gap +0.412 but n_high=1).
+
+Takeaway:
+
+The three properties are independent and arranged differently across models. **Calibration ≠ discrimination** — `ast_audio` is best-calibrated on MAVD (ECE 0.158) but `feature_fusion_audio_only` discriminates best (ROC-AUC 0.704). **Calibration ≠ confidence usefulness** — `ast_audio`'s apparent confidence gap (+0.412) is a single high-confidence clip. Only `feature_fusion_audio_only` on MAVD satisfies all three at once after temperature scaling: ECE 0.107, ROC-AUC 0.704, confidence gap +0.353 with n_high=59. That model is the deployment candidate on the three-property intersection.
+
+The MAVD-fit temperature does not transfer to TAU. The residual TAU miscalibration is base-rate shift plus weak discrimination, not something monotone probability scaling can fix. `ast_audio`'s near-chance TAU ROC-AUC (0.557) is a **discrimination failure**, not a calibration failure.
+
+Methodological notes:
+
+- **Confidence definition matters.** `max(p, 1-p)` vs `p` is not cosmetic — `video_finetuned`'s 0.02 predictions on TAU are **high-confidence negative predictions**, not low-confidence ones.
+- **Per-fold calibration is not equivalent to global calibration.** MAVD's per-fold temperatures change cross-fold ranking (max accuracy diff 0.035–0.517 across risk-coverage curves). TAU's single global temperature preserves ranking exactly (max diff 0.0). Both are valid protocols; they answer different questions.
+- **Sample adequacy is checked in code.** Gaps report `n_high`, `n_low`, `gap_reliable`; CIs report `n/a` where the group is too small.
+- **Video-level bootstrap** (W10.3.2) confirms the two significant confidence findings are robust to clustering (signs do not flip; CIs widen).
+
+Limitations:
+
+- Provenance contamination on 3 of 7 MAVD models — excluded from MAVD calibration/confidence.
+- `late_fusion_ast` TAU evidence missing (not regenerated).
+- Small high-confidence groups limit some claims; several apparent gaps refuted as artifacts.
+- MAVD-fit temperature does not transfer to TAU.
+- Per-fold calibration ≠ global calibration.
+- Video-level bootstrap only for MAVD (TAU has no source-video grouping).
+- Deferred: Platt scaling / isotonic regression (needs TAU-labeled calibration data), conformal prediction (exchangeability violated by TAU), regression calibration (different problem).
+
+Deliverables:
+
+- `scripts/evaluate_calibration.py` (W10.1)
+- `scripts/calibrate_with_temperature.py` (W10.2)
+- `scripts/analyze_confidence.py` (W10.3 + W10.3.2)
+- `docs/model_cards/urbansas_calibration_v1.md` (W10.4)
+- `data/urbansas_results/calibration_metrics.json`
+- `data/urbansas_results/calibration_temperature_results.json`
+- `data/urbansas_results/confidence_analysis.json`
+- `data/urbansas_results/calibration_plots/` (11 W10.1 + 8 W10.2 + 36 W10.3 = 55 plots)
+- Tag: `v0.10.0-week10-calibration`
+
+---
+
+**Interpretation note:** no single model wins on all three axes across both datasets. `feature_fusion_audio_only` MAVD is the only three-axis winner. This is a documented result, not a claim that fusion solves the reliability problem — the fusion story is unchanged from Week 9c.
+
+---

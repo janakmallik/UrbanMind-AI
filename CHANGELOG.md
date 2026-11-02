@@ -4,6 +4,152 @@ All notable changes to UrbanMind-AI, one entry per tagged milestone.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ---
+## [v0.10.0-week10-calibration] — 2026-11-02
+
+Week 10 — Calibration and confidence usefulness on Urbansas models.
+
+### Added
+
+- **W10.1 — Calibration measurement** (`scripts/evaluate_calibration.py`):
+  ECE (adaptive bins, per-bin sample counts), Brier, log loss, ROC-AUC, AP,
+  reliability diagrams with sample-count histograms. 4 honest MAVD models +
+  6 honest TAU models (provenance exclusions documented).
+- **W10.2 — Temperature scaling** (`scripts/calibrate_with_temperature.py`):
+  leakage-safe per-fold fit for MAVD (train on 4 folds' OOF, apply to held-out),
+  global fit on MAVD OOF for TAU transfer. Never fit on TAU labels.
+- **W10.3 — Confidence usefulness** (`scripts/analyze_confidence.py`):
+  `max(p, 1-p)` confidence, per-bin accuracy, high-vs-low gap, bootstrap CIs
+  at clip, location, and video level (W10.3.2).
+- **W10.4 — Model card** (`docs/model_cards/urbansas_calibration_v1.md`).
+
+### Results
+
+- MAVD calibration (honest models): `ast_audio` best-calibrated ECE 0.158;
+  `feature_fusion_audio_only` best-discriminating ROC-AUC 0.704. **Calibration
+  and discrimination are independent.**
+- Temperature scaling helps most where overconfidence was largest:
+  `feature_fusion_audio_only` ECE 0.201 → 0.107 (T ≈ 3.65); `ast_audio` barely
+  moves (T ≈ 0.87, already calibrated). MLPs were massively overconfident
+  (T ≈ 4–6).
+- MAVD-fit temperature does not transfer to TAU — all models improve by only
+  0.003–0.030 ECE. Residual TAU miscalibration is base-rate shift (25.6% → 15.0%)
+  plus weak discrimination; not fixable by monotone probability scaling.
+- AST audio's TAU failure is a **discrimination failure** (ROC-AUC 0.557 near
+  chance), not a calibration failure.
+- Three statistically-supported confidence-usefulness findings (n_high ≥ 20,
+  CIs exclude zero at clip and video level): `feature_fusion_audio_only` MAVD
+  raw (+0.387) and calibrated (+0.353); `video_finetuned` TAU raw (+0.333).
+- Only `feature_fusion_audio_only` MAVD satisfies all three properties
+  simultaneously after temperature scaling: ECE 0.107, ROC-AUC 0.704,
+  confidence gap +0.353 (n_high=59).
+
+### Documented
+
+- Provenance exclusions for MAVD calibration/confidence: `video_finetuned`
+  (encoder fine-tuned on all 540 MAVD), `late_fusion_fromscratch` and
+  `late_fusion_ast` (contaminated video input). TAU results for these models
+  are honest and reported.
+- Missing evidence: `fusion_tau_external_kinetics.csv` was never regenerated
+  after 9c-ext-1b. Documented, not approximated.
+- Small-sample artifacts refuted: `ast_audio` MAVD raw gap +0.412 has n_high=1;
+  several other apparent gaps have n_high < 20 and are reported as `n/a`.
+- Per-fold calibration (MAVD) ≠ global calibration (TAU): MAVD per-fold
+  temperatures change cross-fold risk-coverage ranking (max diff 0.035–0.517);
+  TAU single global temperature preserves it exactly (max diff 0.0). Both are
+  valid protocols.
+- Confidence definition (`max(p, 1-p)` vs `p`) matters for `video_finetuned`
+  TAU — its 0.02 predictions are high-confidence negatives, not low-confidence.
+- Video-level bootstrap (W10.3.2) added for MAVD; TAU has no source-video
+  grouping. Clip-level, video-level, and location-level (exploratory, 5 clusters)
+  CIs all reported.
+
+### Deferred
+
+- Platt scaling / isotonic regression (needs TAU-labeled calibration data —
+  external test untouched).
+- Conformal prediction (exchangeability assumption violated by TAU).
+- Calibration on METR-LA regressors (different problem).
+- Fold-specific fine-tuned video embeddings (natural follow-up to 9c-ext-2).
+
+### Not committed
+
+- Calibration JSONs (`data/urbansas_results/calibration_*.json` — gitignored)
+- Confidence analysis JSON (`data/urbansas_results/confidence_analysis.json` — gitignored)
+- Reliability diagrams (`data/urbansas_results/calibration_plots/` — gitignored)
+
+## [v0.9.14-week9c-feature-fusion] — 2026-10-30
+
+Week 9c extension — feature-level fusion with frozen pretrained embeddings.
+**Backfilled entry** — this milestone shipped before its CHANGELOG entry was
+written; documented here for completeness.
+
+### Added
+
+- **C2b — Feature-level fusion** (`scripts/train_urbansas_feature_fusion.py`,
+  `scripts/extract_urbansas_embeddings.py --encoder-variant kinetics_only`):
+  concatenated frozen AST audio (768-d) + frozen Kinetics-400 R(2+1)D-18 video
+  (512-d) embeddings → 3 MLP heads (audio-only, video-only, fusion).
+  Per-fold `StandardScaler` fit on training locations only.
+- **Verified provenance**: AST encoder byte-identical to AudioSet (0 weight
+  mismatches); video backbone from fresh Kinetics-400 weights (never fine-tuned
+  on Urbansas). **The initial C2 run was contaminated** — video embeddings came
+  from `urbansas_video_final.pt` (fine-tuned on all 540 MAVD), producing an
+  inflated video-only MLP MAVD F1 of 0.9065 that reflected encoder-level
+  leakage. C2b corrects this.
+- **Preserved both artifacts**: `feature_fusion_oof.csv` (C2, contaminated) and
+  `feature_fusion_oof_kinetics.csv` (C2b, honest) — both in the repo's results
+  directory documentation (gitignored on disk), referenced in the model card.
+
+### Results
+
+- **MAVD (5-fold LOLA, C2b honest):** audio-only MLP F1 0.3956 (ROC-AUC 0.7042,
+  AP 0.4334, Brier 0.2240); video-only MLP F1 0.3862 (ROC-AUC 0.5788, AP 0.3154,
+  Brier 0.2996); fusion MLP F1 0.4079 (ROC-AUC 0.6605, AP 0.3899, Brier 0.2959).
+- **Fusion vs audio:** Δ F1 +0.0123, clip-level CI [−0.0605, +0.0884] includes
+  zero; location-level CI includes zero. **Inconclusive.**
+- **Fusion vs video:** location-level CI [+0.0116, +0.1050] barely excludes
+  zero; clip-level includes zero. Directional, not conclusive.
+- **Audio-only wins on threshold-independent metrics:** ROC-AUC 0.7042 vs 0.6605
+  (fusion), AP 0.4334 vs 0.3899, Brier 0.2240 vs 0.2959. Fusion's higher F1 is
+  from a higher predicted-positive rate (0.398 vs 0.250), not better ranking.
+- **TAU external:** audio 0.2848 F1 / 0.6059 AUC / 0.2321 AP; video 0.2890 /
+  0.5776 / 0.1947; fusion 0.3154 / 0.6158 / 0.2656. Fusion leads directionally
+  but all three are weak.
+
+### Documented
+
+- **Location-dependent shortcut behavior in the video-only MLP** — predicted
+  positive rate varied from 0% (`templete0103`) to 93.7% (`magallanes0308`)
+  across held-out locations with base rates 6.7–32.0%. Because the held-out
+  location is excluded from training, this is **not direct memorization** —
+  it is scene-context shortcut behavior (embedding captures location-distinguishing
+  texture; MLP uses it as label proxy). Same failure mode as Week 9c video
+  classifier's 55% false-positive rate on `only_visible` clips.
+- **C2 contamination — methodological lesson:** freezing an encoder at extraction
+  time does not remove what it learned during training. The checkpoint's provenance
+  is what counts.
+- **Correlation between fine-tuned and Kinetics-only video embeddings: 0.1238** —
+  genuinely different learned representations.
+- **Feature fusion is not a solution to the video model's shortcut problem.**
+  Future work should test fold-specific fine-tuned video embeddings and
+  cross-attention, but not before establishing whether scene-context shortcut
+  can be mitigated at the embedding level.
+
+### Not committed
+
+- Feature fusion prediction CSVs (gitignored)
+- Feature fusion result JSONs (gitignored)
+- Video embeddings `*.npy` (gitignored)
+
+### Deferred
+
+- Fold-specific fine-tuned video embeddings (retrain Week 9c video with per-fold
+  checkpoints, re-extract embeddings, re-run feature fusion).
+- Cross-attention fusion on the frozen embeddings.
+- 4-class subclass task (requires label-semantics audit).
+- Full nested CV (leakage concern on late fusion).
+
+---
 ## [v0.9.13-week9c-pretrained-audio] — 2026-10-29
 
 Week 9c extension — pretrained AST audio baseline and fusion sensitivity

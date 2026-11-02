@@ -92,6 +92,7 @@ Each row below is *one week* of work with the same deliverables.
 |---|---|---|---|
 | Report generation | Qwen2.5-1.5B consumes 7 modality outputs → field report | Qwen 0.890–0.902 vs template 0.626 | `v0.9.8-week8-qwen` |
 | Multi-view fusion | ResNet + SegFormer + YOLO features → LightGBM scene classifier | 0.6910 F1 vs ResNet 0.6986 (CI includes 0); residential recall 0.41→0.67 | `v0.9.9-week9-multiview-fusion` |
+| **Reliability evaluation** | ECE / Brier / AP + leakage-safe temperature scaling + confidence-usefulness bootstrap on Urbansas models | Only `feature_fusion_audio_only` MAVD satisfies calibration (ECE 0.107), discrimination (ROC-AUC 0.704), and confidence usefulness (gap +0.353) simultaneously; MAVD-fit temperature does not transfer to TAU | `v0.10.0-week10-calibration` |
 
 **The report generator** is output-level fusion (evidence aggregation + LLM narrative). **The multi-view fusion** is feature-level fusion of same-modality features. Neither is cross-modal.
 
@@ -156,6 +157,7 @@ To be explicit, because the "multi-modality" label can overclaim:
   **Extension (AST audio, `v0.9.13-week9c-pretrained-audio`):** A pretrained AST audio baseline (MAVD F1 0.4673, ROC-AUC 0.6801) substantially improves in-domain performance over from-scratch audio but does not improve TAU ranking (ROC-AUC 0.5572 vs 0.5587 — the apparent F1 improvement is a threshold artifact). **When audio is strong, fusion no longer helps.** This confirms the complementary-signal hypothesis is conditional on audio weakness, not a general property of these modalities.
 
   Higher-capability fusion methods (feature-level, cross-attention) remain future work, and should be tested with AST as the audio input — the harder case where late fusion did not help.
+- **Not a claim that calibration fixes generalization.** Temperature scaling preserves binary ranking and can improve probability calibration on the fitting domain. It does not transfer to a new city/domain when the shift is base-rate or discrimination failure (Week 10: AST audio's TAU ROC-AUC 0.557 is near chance; no probability transform fixes a near-random classifier).
 - **Not a real-time system.** Every model is trained offline; inference
   is per-clip, batch-style.
 - **Not deployed as a service.** There is no FastAPI, no Docker, no
@@ -177,7 +179,7 @@ To be explicit, because the "multi-modality" label can overclaim:
 
 | Planned | Week | Status |
 |---|---|---|
-| **Uncertainty + calibration** (conformal, ECE) | 10 | **Next** |
+| **Uncertainty + calibration** (ECE, temperature scaling, confidence usefulness) | 10 | **Shipped — `v0.10.0-week10-calibration`** |
 | Feature-level / cross-attention fusion on Urbansas | 9c-ext | Planned — builds on Week 9c late fusion |
 | **Generative models** (VAE / diffusion) | 12 | Planned |
 | **MLOps + deployment** (FastAPI, Docker, CI/CD) | 13 | Planned |

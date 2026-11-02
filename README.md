@@ -80,14 +80,14 @@ A research and engineering project that builds end-to-end machine learning syste
 - **Graph learning** — GCN, GAT, spatiotemporal GNNs
 - **Multimodal fusion** — late, early, cross-attention
 - Generative models — VAEs, GANs, diffusion (planned, Week 11)
-- Uncertainty — conformal prediction, calibration (planned, Week 10)
+- Uncertainty — calibration, temperature scaling, confidence analysis (Week 10)
 - **MLOps** — MLflow, FastAPI, Docker, CI/CD, monitoring
 
 ## Project status — Weeks 1–9a complete, Week 10 next
 
-✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6, 7.7, 8, 9a
+✅ **Completed** — Weeks 1, 2, 3, 4, 5, 6, 7, 7.5, 7.6, 7.7, 8, 9a, 9b, 9c, 10
 
-🚧 **Next** — Week 10 (uncertainty + calibration)
+ 🚧 **Next** — Week 11 (generative models)
 
 Some milestones have sub-steps (`7.5`, `7.6`) inserted between numbered
 weeks when a follow-on experiment deserved its own tag. Milestones are
@@ -112,6 +112,7 @@ not calendar weeks — they are units of shippable work.
 | 9c (audit) | Week 9c label + evaluation audit | `-1` sentinel ambiguous; video's TAU signal partly city-level; nested-CV pilot shows leakage not dominant | `v0.9.11-week9c-audit` |
 | 9c-ext-1 | Pretrained AST audio + fusion sensitivity | AST MAVD F1 0.4673 (+27% over from-scratch); TAU ROC-AUC identical to from-scratch (threshold artifact); fusion does not help when audio is strong | `v0.9.13-week9c-pretrained-audio` |
 | 9c-ext-2 | Feature-level fusion (AST + Kinetics-only video embeddings) | Fusion F1 0.4079 vs audio 0.3956 (CI includes zero); audio wins on ROC-AUC/AP/Brier; video shows location-dependent shortcut behavior | `v0.9.14-week9c-feature-fusion` |
+| 10 | Calibration + confidence usefulness (Urbansas) | 3 distinct properties measured; temperature scaling helps overconfident MLPs but not near-random AST-TAU; only feature_fusion_audio_only wins on all three axes | v0.10.0-week10-calibration |
 | 11 | Generative models (VAE / diffusion) | Not started | — |
 | 12 | MLOps + deployment (FastAPI, Docker, CI/CD) | Not started | — |
 
@@ -809,7 +810,6 @@ By completing Weeks 1–8.1:
 
 ### Planned (not yet built)
 - Cross-modal fusion on paired data (Week 10+, requires new dataset)
-- Uncertainty + conformal prediction (Week 10)
 - Generative models (VAE, GAN, diffusion — Week 11)
 - FastAPI serving + Docker (Week 12)
 
