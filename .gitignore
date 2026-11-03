@@ -264,6 +264,7 @@ mlflow.db-*
 project_progress_track.md
 Checkpoint.md
 Checkpoint_2.md
+resume.md
 
 # Model checkpoints (tracked via MLflow artifacts, not git)
 *.pt
